@@ -1,0 +1,10 @@
+version: '3.9'
+services:
+  outage-intelligence-api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../:/app
