@@ -1,6 +1,24 @@
 # Outage Intelligence MVP
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Status](https://img.shields.io/badge/status-portfolio--ready-blue)
+![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20SQLite%20%7C%20Rules%20Engine-1f6feb)
+
 Public-safe MVP for an event-driven outage intelligence workflow. The system accepts outage notifications from enterprise clients, returns an immediate ETA recommendation, revises that ETA when field evidence arrives, applies a timeout failsafe when evidence is missing, and stores restoration ground truth for future machine learning work.
+
+## Status
+
+- Portfolio-ready public demo
+- Public-safe synthetic data only
+- Tested workflow for create, revise, timeout, and restore
+
+## Tech stack
+
+- Backend: FastAPI, Pydantic
+- Persistence: SQLite
+- Decision layer: deterministic rules engine
+- Testing: pytest, FastAPI TestClient
+- Packaging: Docker, docker-compose, Makefile
 
 ## What problem this project solves
 
