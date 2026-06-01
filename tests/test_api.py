@@ -9,6 +9,8 @@ SENSITIVE_DEMO_TERMS = [
     "callback URL",
     "credential",
     "token",
+    "real endpoint",
+    "raw credential",
 ]
 
 
@@ -58,6 +60,24 @@ def seed_executive_demo_story(client, headers: dict | None = None):
     )
     client.post(f"/api/v1/incidents/{incident_id}/restore", headers=headers, json={"restored_by": "SCADA_SENSOR"})
 
+    active_res = create_incident(
+        client,
+        site_id="SITE-DEMO-EXEC-003",
+        headers=headers,
+        scada_status="OUTAGE_CONFIRMED",
+        source_event_id="SRC-DEMO-EXEC-003",
+    )
+    active_id = active_res.json()["incident"]["id"]
+    client.post(
+        f"/api/v1/incidents/{active_id}/signals/field",
+        headers=headers,
+        json={
+            "channel": "FIELD_APP",
+            "raw_text": "Patrol underway. Fault not located yet.",
+            "source_signal_id": "SRC-DEMO-EXEC-SIGNAL-003",
+        },
+    )
+
     timeout_res = create_incident(
         client,
         site_id="SITE-DEMO-EXEC-002",
@@ -68,6 +88,16 @@ def seed_executive_demo_story(client, headers: dict | None = None):
     timeout_id = timeout_res.json()["incident"]["id"]
     client.app.state.service.force_backdate_incident(timeout_id, minutes_ago=121)
     client.post(f"/api/v1/incidents/{timeout_id}/timeout-check", headers=headers)
+    timeout_delivery = next(
+        delivery
+        for delivery in client.get("/api/v1/webhook-deliveries", headers=headers).json()
+        if delivery["incident_id"] == timeout_id and delivery["event_type"] == "timeout.applied"
+    )
+    client.post(
+        f"/api/v1/webhook-deliveries/{timeout_delivery['event_id']}/attempts",
+        headers=headers,
+        json={"outcome": "failed", "response_status": 503, "error_message": "Synthetic partner receiver unavailable"},
+    )
     return incident_id
 
 
@@ -169,6 +199,40 @@ def test_executive_demo_page_renders_sections_without_sensitive_values(auth_clie
 
     assert response.status_code == 200
     for section in ["Executive Summary", "Partner Journey", "Decision Rationale", "Webhook Delivery", "ML Readiness"]:
+        assert section in html
+    assert "Skip to main content" in html
+    for term in SENSITIVE_DEMO_TERMS:
+        assert term not in html
+
+
+def test_operator_console_summary_is_public_safe_and_actionable(auth_client, partner_a_headers):
+    seed_executive_demo_story(auth_client, headers=partner_a_headers)
+
+    response = auth_client.get("/api/v1/operator/console-summary")
+    payload = response.json()
+    response_text = response.text
+
+    assert response.status_code == 200
+    assert payload["data_boundary"] == "synthetic-public-safe"
+    assert payload["metrics"]["active_incidents"] >= 2
+    assert payload["metrics"]["timeout_risk_items"] >= 1
+    assert payload["metrics"]["webhook_queue_items"] >= 1
+    assert payload["closed_loop_data"]["dataset_rows"] >= 1
+    assert any(item["risk_level"] in {"applied", "high"} for item in payload["timeout_risk"])
+    assert any(item["status"] in {"queued", "retry_scheduled"} for item in payload["webhook_queue"])
+    assert payload["partner_actions"]
+    for term in SENSITIVE_DEMO_TERMS:
+        assert term not in response_text
+
+
+def test_operator_console_page_renders_sections_without_sensitive_values(auth_client, partner_a_headers):
+    seed_executive_demo_story(auth_client, headers=partner_a_headers)
+
+    response = auth_client.get("/demo/operator-console")
+    html = response.text
+
+    assert response.status_code == 200
+    for section in ["Active Incidents", "Timeout Risk", "Webhook Queue", "Partner Actions", "Closed-loop Data"]:
         assert section in html
     assert "Skip to main content" in html
     for term in SENSITIVE_DEMO_TERMS:

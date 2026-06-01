@@ -12,6 +12,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Audit trail for ETA revisions, timeout fallback, and restoration closure
 - Local webhook outbox with signed metadata, retry scheduling, and sandbox delivery attempts
 - Executive demo summary feed and public-safe walkthrough page
+- Operator pilot console summary feed and public-safe workflow page
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -25,7 +26,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Real outbound webhook delivery workers and receiver-side signature verification
 - Database migration strategy beyond local SQLite
 - Structured observability, alerting, and incident-owner runbooks
-- Operator-grade dashboard with access control and live operational telemetry
+- Production operator dashboard with access control, live telemetry, role-specific filtering, and runbook links
 - Data retention, de-identification, and regulatory review for real operational data
 
 ## Recommended Rollout Path

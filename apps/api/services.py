@@ -899,6 +899,126 @@ class IncidentService:
             ],
         }
 
+    def operator_console_summary(self) -> JSONDict:
+        incidents = self.list_incidents()
+        deliveries = self.list_webhook_deliveries()
+        profiles = self.list_partner_profiles()
+        closed_dataset = self.export_closed_incidents_dataset()
+        now = utcnow()
+
+        active_incidents = [incident for incident in incidents if incident["status"] != "CLOSED"]
+        active_cards = []
+        timeout_cards = []
+        partner_action_cards = []
+        for incident in active_incidents:
+            decision = self.decision_for_incident(incident)
+            reference_time = incident["last_signal_at"] or incident["created_at"]
+            minutes_since_update = round((now - reference_time).total_seconds() / 60.0, 1)
+            timeout_status = "applied" if incident["timeout_applied"] else "watch"
+            if not incident["timeout_applied"] and minutes_since_update >= TIMEOUT_MINUTES * 0.75:
+                timeout_status = "high"
+            elif not incident["timeout_applied"] and minutes_since_update < TIMEOUT_MINUTES * 0.75:
+                timeout_status = "normal"
+
+            incident_card = {
+                "incident_id": incident["id"],
+                "partner_id": incident["partner_id"],
+                "site_id": incident["site_id"],
+                "status": incident["status"],
+                "eta_hours": incident["current_eta_hours"],
+                "reason_code": incident["reason_code"],
+                "confidence_band": decision["confidence_band"],
+                "partner_action": decision["partner_action"],
+                "minutes_since_update": minutes_since_update,
+            }
+            active_cards.append(incident_card)
+            partner_action_cards.append(
+                {
+                    "incident_id": incident["id"],
+                    "site_id": incident["site_id"],
+                    "recommendation": decision["recommendation"],
+                    "partner_action": decision["partner_action"],
+                    "policy_explanation": decision["policy_explanation"],
+                }
+            )
+            if timeout_status != "normal":
+                timeout_cards.append(
+                    {
+                        "incident_id": incident["id"],
+                        "site_id": incident["site_id"],
+                        "risk_level": timeout_status,
+                        "minutes_since_update": minutes_since_update,
+                        "timeout_minutes": TIMEOUT_MINUTES,
+                        "current_eta_hours": incident["current_eta_hours"],
+                        "reason_code": incident["reason_code"],
+                    }
+                )
+
+        actionable_deliveries = [
+            delivery
+            for delivery in deliveries
+            if delivery["status"] in {"queued", "retry_scheduled", "failed", "exhausted"}
+        ]
+        webhook_queue = [
+            {
+                "event_id": delivery["event_id"],
+                "event_type": delivery["event_type"],
+                "partner_id": delivery["partner_id"],
+                "incident_id": delivery["incident_id"],
+                "status": delivery["status"],
+                "attempt_count": delivery["attempt_count"],
+                "max_attempts": delivery["max_attempts"],
+                "next_attempt_at": dtstr(delivery["next_attempt_at"]),
+            }
+            for delivery in actionable_deliveries[-8:]
+        ]
+
+        closed_incidents = [incident for incident in incidents if incident["status"] == "CLOSED"]
+        restored_count = len([incident for incident in closed_incidents if incident["restored_at"] is not None])
+        ground_truth_coverage = round(restored_count / len(closed_incidents), 3) if closed_incidents else 0.0
+
+        return {
+            "generated_at": now,
+            "data_boundary": "synthetic-public-safe",
+            "operating_questions": [
+                "Which incidents need partner action now?",
+                "Which incidents are near timeout fallback?",
+                "Which webhook notifications still need delivery attention?",
+                "Is closed-loop ground truth ready for evaluation?",
+            ],
+            "metrics": {
+                "active_incidents": len(active_incidents),
+                "timeout_risk_items": len(timeout_cards),
+                "webhook_queue_items": len(webhook_queue),
+                "closed_loop_rows": len(closed_dataset),
+                "partner_profiles": len(profiles),
+            },
+            "active_incidents": active_cards,
+            "timeout_risk": timeout_cards,
+            "webhook_queue": webhook_queue,
+            "partner_actions": partner_action_cards,
+            "closed_loop_data": {
+                "closed_incidents": len(closed_incidents),
+                "dataset_rows": len(closed_dataset),
+                "restoration_ground_truth_coverage": ground_truth_coverage,
+                "next_metric_to_watch": "ETA error and underestimation rate by partner class",
+            },
+            "partner_scope_status": [
+                {
+                    "partner_id": profile["partner_id"],
+                    "partner_class": profile["partner_class"],
+                    "allowed_site_prefixes": profile["allowed_site_prefixes"],
+                    "webhook_mode": profile["webhook_mode"],
+                }
+                for profile in profiles
+            ],
+            "public_safe_controls": [
+                "Raw webhook headers are excluded",
+                "Raw field signal text is excluded",
+                "Only synthetic partner, site, and incident identifiers are rendered",
+            ],
+        }
+
     def export_closed_incidents_dataset(self) -> list[JSONDict]:
         with self._conn() as conn:
             rows = fetch_all(conn, "SELECT * FROM incidents WHERE status = 'CLOSED' ORDER BY restored_at ASC")

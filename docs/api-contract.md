@@ -195,6 +195,27 @@ Response includes:
 - `webhook_delivery`: status counts and recent outbox events without private headers
 - `ml_readiness`: closed-loop dataset rows and export shape
 
+## GET `/api/v1/operator/console-summary`
+
+Returns a sanitized operator pilot feed for the public-safe console at `/demo/operator-console`. It is read-only and designed for NOC-style workflow review, not for production dispatch automation.
+
+Response includes:
+
+- `operating_questions`: the operational questions the console is organized around
+- `metrics`: active incident count, timeout risk count, webhook queue count, closed-loop rows, and partner profiles
+- `active_incidents`: current synthetic cases with ETA, confidence, reason code, and minutes since update
+- `timeout_risk`: incidents approaching or already using timeout fallback
+- `webhook_queue`: local outbox records that are queued, retry scheduled, failed, or exhausted
+- `partner_actions`: recommended partner-facing operational action per active incident
+- `closed_loop_data`: restoration coverage and evaluation readiness indicators
+- `partner_scope_status`: public-safe partner class, synthetic site-prefix scope, and webhook mode
+
+Security boundary:
+
+- excludes sandbox API keys and webhook signing metadata
+- excludes raw field text and private delivery headers
+- avoids real endpoints, topology, partner data, or production callback details
+
 ## Error Format
 
 All API errors use the same shape:

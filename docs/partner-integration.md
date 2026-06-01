@@ -86,6 +86,21 @@ Use `python scripts/seed_demo_data.py` and open `/demo/incidents` to walk throug
 
 The JSON feed at `/api/v1/demo/executive-summary` is sanitized for public demos and excludes private delivery headers and raw field transcripts.
 
+## Operator Pilot Console
+
+Use `/demo/operator-console` after seeding demo data to review the same product concept from a utility or partner NOC perspective.
+
+The operator console is intentionally different from the executive walkthrough:
+
+- executive walkthrough explains product value in a short partner conversation
+- operator console answers what needs attention now during a private pilot workflow
+- active incidents show ETA, confidence band, reason code, and update age
+- timeout risk highlights incidents approaching or using fallback policy
+- webhook queue shows sandbox delivery records that need retry or awareness
+- closed-loop data shows whether restoration outcomes are ready for evaluation
+
+The JSON feed at `/api/v1/operator/console-summary` is read-only and sanitized. It does not expose private delivery headers, raw field text, signing metadata, or callback details.
+
 ## Data Minimization
 
 Send only the operational fields needed for outage decisions. Avoid real names, chat messages, endpoint URLs, topology, GPS coordinates, and commercial terms in public prototype environments.

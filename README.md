@@ -17,6 +17,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Partner sandbox profiles with site-scope boundaries and webhook mode metadata
 - Local webhook outbox with signed payload metadata, delivery attempts, and retry scheduling for sandbox integration design
 - Executive demo page and read-only summary feed for a 3-minute partner pilot walkthrough
+- Operator pilot console and read-only summary feed for NOC-style workflow review
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -146,6 +147,18 @@ The demo focuses on:
 - webhook delivery state
 - ML-ready ground truth coverage
 
+### 8. Review the operator pilot console
+
+`GET /demo/operator-console` renders a lightweight operator-facing console for private pilot discussions. `GET /api/v1/operator/console-summary` exposes the same sanitized read-only feed.
+
+The console is organized around operational questions rather than vanity metrics:
+
+- which active incidents need partner action now
+- which incidents are approaching or using timeout fallback
+- which webhook records still need delivery attention
+- whether closed-loop restoration data is ready for evaluation
+- whether partner scope metadata is visible without exposing private configuration
+
 ```bash
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
 python scripts/train_eta_baseline.py
@@ -169,7 +182,7 @@ More detail is available in [docs/security-and-governance.md](docs/security-and-
 - Enterprise API contract: partner documentation, idempotency policy, standard errors, auth boundary, and audit history
 - Operational decision layer: clearer policy explanations, confidence bands, and partner action semantics
 - Partner readiness: webhook/API integration guide, data-minimization boundary, and synthetic payload catalog
-- Executive demo: incident timeline that shows ETA sent, field revision, timeout, restoration, and dataset export
+- Demo surfaces: executive value walkthrough and operator pilot console for active incidents, timeout risk, webhook queue, and closed-loop coverage
 - ML data product: ETA accuracy monitoring, prolonged-outage risk baseline, and partner-level performance reporting
 
 See [docs/partner-integration.md](docs/partner-integration.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
@@ -189,6 +202,8 @@ Useful local endpoints:
 - API docs: `http://127.0.0.1:8000/docs`
 - Executive demo view: `http://127.0.0.1:8000/demo/incidents`
 - Executive summary JSON: `http://127.0.0.1:8000/api/v1/demo/executive-summary`
+- Operator console view: `http://127.0.0.1:8000/demo/operator-console`
+- Operator summary JSON: `http://127.0.0.1:8000/api/v1/operator/console-summary`
 - Health check: `http://127.0.0.1:8000/health`
 - Readiness check: `http://127.0.0.1:8000/ready`
 - Webhook outbox: `http://127.0.0.1:8000/api/v1/webhook-deliveries`

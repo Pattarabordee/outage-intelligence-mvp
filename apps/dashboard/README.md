@@ -1,8 +1,11 @@
-# Executive Demo Surface
+# Demo Surfaces
 
-The current public-safe prototype exposes an executive partner demo at `/demo/incidents` and a sanitized JSON feed at `/api/v1/demo/executive-summary`.
+The current public-safe prototype exposes two lightweight FastAPI HTML surfaces:
 
-The page is designed to tell the product story in a short partner walkthrough:
+- `/demo/incidents` with `/api/v1/demo/executive-summary` for the executive partner walkthrough
+- `/demo/operator-console` with `/api/v1/operator/console-summary` for operator pilot workflow review
+
+The executive page is designed to tell the product story in a short partner walkthrough:
 
 - incident opened by an enterprise partner event
 - immediate ETA and partner action returned
@@ -10,6 +13,14 @@ The page is designed to tell the product story in a short partner walkthrough:
 - timeout failsafe prevents stalled decisions
 - webhook outbox and sandbox delivery attempts show partner notification readiness
 - restoration closure creates analytics and ML ground truth
+
+The operator console is designed around live workflow questions:
+
+- which active incidents need partner attention now
+- which incidents are approaching or using timeout fallback
+- which webhook delivery records still need retry or awareness
+- what partner action should be taken for each active incident
+- whether closed-loop data coverage is ready for evaluation
 
 The current implementation intentionally stays inside the FastAPI service so the repo remains easy to clone and run. A separate frontend can be added later when the operator dashboard needs richer interactivity.
 

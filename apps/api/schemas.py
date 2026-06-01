@@ -176,6 +176,20 @@ class ExecutiveSummaryOut(BaseModel):
     public_safe_controls: list[str] = Field(default_factory=list)
 
 
+class OperatorConsoleSummaryOut(BaseModel):
+    generated_at: datetime
+    data_boundary: str
+    operating_questions: list[str] = Field(default_factory=list)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    active_incidents: list[dict[str, Any]] = Field(default_factory=list)
+    timeout_risk: list[dict[str, Any]] = Field(default_factory=list)
+    webhook_queue: list[dict[str, Any]] = Field(default_factory=list)
+    partner_actions: list[dict[str, Any]] = Field(default_factory=list)
+    closed_loop_data: dict[str, Any] = Field(default_factory=dict)
+    partner_scope_status: list[dict[str, Any]] = Field(default_factory=list)
+    public_safe_controls: list[str] = Field(default_factory=list)
+
+
 class ErrorDetail(BaseModel):
     field: str | None = None
     message: str
