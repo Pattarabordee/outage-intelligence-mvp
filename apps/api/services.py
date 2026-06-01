@@ -17,6 +17,8 @@ from .rules import (
     confidence_band,
     evaluate_text_signal,
     initial_eta_from_scada,
+    partner_action_from_recommendation,
+    policy_explanation,
     recommendation_from_eta,
 )
 from .types import JSONDict
@@ -385,13 +387,21 @@ class IncidentService:
         return self.get_incident(incident_id)
 
     def decision_for_incident(self, incident: JSONDict) -> JSONDict:
+        recommendation = incident["dispatch_decision"]
         return {
             "eta_hours": incident["current_eta_hours"],
-            "recommendation": incident["dispatch_decision"],
+            "recommendation": recommendation,
+            "partner_action": partner_action_from_recommendation(recommendation),
             "confidence_band": confidence_band(incident["severity"]),
             "reason_code": incident["reason_code"],
             "policy_version": incident["metadata"].get("policy_version", POLICY_VERSION),
             "prediction_time": incident["updated_at"],
+            "policy_explanation": policy_explanation(incident["reason_code"], incident["current_eta_hours"]),
+            "sla_behavior": {
+                "timeout_minutes": incident["metadata"].get("timeout_minutes", TIMEOUT_MINUTES),
+                "timeout_fallback_eta_hours": TIMEOUT_WORST_CASE_HOURS,
+                "idempotency_fields": ["source_event_id", "idempotency_key", "source_signal_id"],
+            },
         }
 
     def export_closed_incidents_dataset(self) -> list[JSONDict]:

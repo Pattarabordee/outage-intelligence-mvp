@@ -1,151 +1,144 @@
-# Outage Intelligence MVP
+# Enterprise Outage Intelligence Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-![Status](https://img.shields.io/badge/status-portfolio--ready-blue)
+![Status](https://img.shields.io/badge/status-enterprise--prototype-blue)
 ![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20SQLite%20%7C%20Rules%20Engine-1f6feb)
 
-Public-safe MVP for an event-driven outage intelligence workflow. The system accepts outage notifications from enterprise clients, returns an immediate ETA recommendation, revises that ETA when field evidence arrives, applies a timeout failsafe when evidence is missing, and stores restoration ground truth for future machine learning work.
+Enterprise outage intelligence API for utility-to-partner coordination. This public-safe product prototype shows how a utility-style organization could coordinate outage ETA, partner operational decisions, audit events, timeout fallback, and restoration ground truth with large enterprise partners such as telecom operators, data centers, industrial estates, hospital networks, or other critical infrastructure operators.
 
-## Status
+This repository is a synthetic reference implementation. It is not a production system, does not represent a live organizational deployment, and does not imply any actual partnership with named companies.
 
-- Portfolio-ready public demo
-- Public-safe synthetic data only
-- Tested workflow for create, revise, timeout, restore, idempotency, and audit trail
+## Product Status
 
-## Tech stack
+- Public-safe enterprise product prototype
+- Synthetic data, synthetic identifiers, and no real partner payloads
+- Tested workflows for incident creation, ETA revision, timeout fallback, restoration closure, idempotency, and audit trail
+- ML-ready closed-loop export and simple ETA baseline
+
+## Tech Stack
 
 - Backend: FastAPI, Pydantic
 - Persistence: SQLite
 - Decision layer: deterministic rules engine
-- Testing: pytest, FastAPI TestClient
+- Testing: pytest, pytest-cov, FastAPI TestClient
 - Packaging: Docker, docker-compose, Makefile
 
-## What problem this project solves
+## Enterprise Use Case
 
-Power-sensitive sites often need a fast answer to a practical question: wait for utility restoration or dispatch backup resources now. Acting too early wastes cost. Acting too late risks avoidable downtime.
+Large power-dependent organizations need fast, explainable answers during utility outages:
 
-This MVP demonstrates a two-step decision pattern:
+- Should the partner wait for expected utility restoration?
+- Should backup operations be prepared?
+- Should backup power, fuel logistics, or field escalation be activated now?
+- What evidence changed the ETA?
+- What ground truth can improve future ETA accuracy?
 
-1. Return an immediate recommendation as soon as an outage is reported.
-2. Revise the ETA once field evidence provides better context.
+The platform answers these questions with a two-step operating pattern:
 
-The result is a system that delivers operational value immediately while also creating a clean data trail for later model development.
+1. A partner or enterprise account workflow sends a synthetic outage event.
+2. The API returns an immediate ETA decision and partner action.
+3. Field evidence revises the ETA and confidence band.
+4. A timeout failsafe prevents ambiguous incidents from stalling.
+5. Restoration closure creates ground truth for analytics and future ML.
 
-## Architecture overview
-
-The repo models a compact event-driven service built around FastAPI, a lightweight rules engine, and SQLite for local persistence.
+## Architecture Overview
 
 ```mermaid
 flowchart LR
-    A[Client outage event] --> B[Immediate Hold API]
-    B --> C[(Incident Store)]
-    B --> D[ETA Policy Engine]
-    D --> E[Initial recommendation]
-
-    F[Synthetic field report] --> G[Signal Evaluation Rules]
-    G --> H[ETA Revision API]
-    H --> C
-    H --> I[Updated recommendation]
-
-    J[Restoration signal] --> K[Close-loop endpoint]
-    K --> C
-    C --> L[Training-ready incident history]
+    A[Utility Operations] --> B[Enterprise Outage API]
+    C[Enterprise Partner System] --> B
+    B --> D[Decision Policy Engine]
+    D --> E[ETA + Partner Action]
+    F[Field Signals] --> G[Signal Evaluation Rules]
+    G --> D
+    B --> H[(Audit + Incident Store)]
+    I[Timeout Failsafe] --> D
+    J[Restoration Ground Truth] --> H
+    H --> K[ML Dataset Export]
 ```
 
 Core repository areas:
 
-- `apps/api/` FastAPI service, schemas, rules, and demo scenario
-- `architecture/` system diagrams and state machine notes
-- `docs/` API contract, business framing, governance, and ML roadmap
-- `data/synthetic/` synthetic field-message examples only
-- `tests/` API workflow coverage for incident create, revise, timeout, and restore
+- `apps/api/` FastAPI service, schemas, rules, and demo surface
+- `architecture/` system overview and state-machine documentation
+- `docs/` API contract, partner integration, governance, product readiness, evaluation, and ML roadmap
+- `data/synthetic/` synthetic messages and closed incidents only
+- `tests/` API and rule regression coverage
 - `infra/` local containerization assets
 
-## Two-step API flow
+## Partner Integration Flow
 
-### Step 1: Immediate hold response
+### 1. Create an enterprise outage incident
 
-`POST /api/v1/incidents` creates an incident and returns an initial ETA recommendation based on the incoming outage state.
-
-Example request:
+`POST /api/v1/incidents` accepts a partner-safe outage event and returns an immediate decision.
 
 ```json
 {
-  "client_name": "DemoOperator",
+  "client_name": "DemoEnterprisePartner",
   "site_id": "SITE-1001",
   "province": "North Zone",
-  "scada_status": "OUTAGE_CONFIRMED"
+  "scada_status": "OUTAGE_CONFIRMED",
+  "source_event_id": "SRC-EVENT-1001"
 }
 ```
 
-### Step 2: ETA revision from field evidence
+The response includes:
 
-`POST /api/v1/incidents/{incident_id}/signals/field` ingests a synthetic field report, extracts severity cues through deterministic rules, and revises ETA when needed.
+- current incident state
+- ETA recommendation
+- partner action
+- confidence band
+- policy explanation
+- SLA-style timeout behavior
 
-Example request:
+### 2. Revise ETA from field evidence
+
+`POST /api/v1/incidents/{incident_id}/signals/field` ingests a synthetic field signal, stores it in the audit trail, and revises the ETA when the policy engine finds stronger evidence.
 
 ```json
 {
   "channel": "FIELD_APP",
-  "raw_text": "Field crew reports pole down and conductor snapped near segment A"
+  "raw_text": "Field crew reports pole down and conductor snapped near segment A",
+  "source_signal_id": "SRC-SIGNAL-1001"
 }
 ```
 
-## Timeout failsafe
+### 3. Apply timeout fallback
 
-When no useful field evidence arrives within the configured window, the service can apply a worst-case ETA through `POST /api/v1/incidents/{incident_id}/timeout-check`.
+`POST /api/v1/incidents/{incident_id}/timeout-check` applies a deterministic worst-case ETA if the incident has not received useful evidence within the configured timeout window. The operation is idempotent.
 
-This prevents the workflow from stalling in an ambiguous state and gives downstream operations a deterministic fallback for backup-dispatch decisions.
+### 4. Close the loop with restoration ground truth
 
-## Close-loop ground truth
-
-`POST /api/v1/incidents/{incident_id}/restore` closes the incident and records the restoration timestamp plus restoration source.
-
-That close-loop signal is important because it turns the MVP into more than a demo API:
-
-- it captures the actual restoration outcome
-- it enables ETA error analysis
-- it creates supervised-learning targets for future models
-
-Closed incidents can be exported for offline ML experiments:
+`POST /api/v1/incidents/{incident_id}/restore` closes the incident, records restoration metadata, and makes the case available for analytics export.
 
 ```bash
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
-```
-
-A simple reproducible ETA baseline is also included:
-
-```bash
 python scripts/train_eta_baseline.py
 ```
 
-## Public-safe design
+## Public-Safe Product Prototype
 
-This repository is intentionally sanitized for public sharing and interview use.
+This repo is intentionally safe to publish and review:
 
-- All examples use synthetic data.
-- No real credentials, tokens, network endpoints, or topology are included.
-- No real field communications or client-side identifiers are included.
-- Naming has been generalized to avoid organization-specific language.
-- The rules engine is deterministic and inspectable, which keeps the demo easy to review.
+- No real credentials, tokens, endpoints, topology, or partner integrations
+- No real outage locations, field transcripts, or customer identifiers
+- No claim of an actual deployment or partnership with a named company
+- Deterministic rules instead of opaque model decisions
+- Synthetic data only, with generalized partner and site naming
 
 More detail is available in [docs/security-and-governance.md](docs/security-and-governance.md).
 
-## Future ML roadmap
+## Product Roadmap
 
-The current implementation is intentionally rules-first. That keeps the MVP explainable and easy to validate while generating the incident history needed for later ML work.
+- Enterprise API contract: stronger partner documentation, idempotency policy, standard errors, and audit history
+- Operational decision layer: clearer policy explanations, confidence bands, and partner action semantics
+- Partner readiness: webhook/API integration guide, data-minimization boundary, and synthetic payload catalog
+- Executive demo: incident timeline that shows ETA sent, field revision, timeout, restoration, and dataset export
+- ML data product: ETA accuracy monitoring, prolonged-outage risk baseline, and partner-level performance reporting
 
-Planned evolution:
+See [docs/partner-integration.md](docs/partner-integration.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
 
-1. Build a labeled incident dataset from closed-loop restoration records.
-2. Add richer structured features such as region, weather, and network-segment context.
-3. Train ETA prediction and prolonged-outage risk models.
-4. Introduce confidence scoring and policy thresholds for operational recommendations.
-5. Move from purely synchronous processing to queue-backed event handling for scale.
-
-See [docs/ml-roadmap.md](docs/ml-roadmap.md) for the longer-term direction.
-
-## Quick start
+## Quick Start
 
 ```bash
 python -m venv .venv
@@ -158,7 +151,8 @@ uvicorn apps.api.main:app --reload
 Useful local endpoints:
 
 - API docs: `http://127.0.0.1:8000/docs`
-- Demo dashboard: `http://127.0.0.1:8000/demo/incidents`
+- Executive demo view: `http://127.0.0.1:8000/demo/incidents`
+- Health check: `http://127.0.0.1:8000/health`
 
 Optional runtime configuration:
 
@@ -168,9 +162,9 @@ Quality checks:
 
 ```bash
 pytest -q
-pytest --cov=apps --cov-report=term-missing
+pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
 ```
 
-## Interview-friendly summary
+## Product Summary
 
-This project shows how to design an event-driven outage workflow that delivers immediate operational value now and accumulates training data for future ML improvements, without exposing internal systems or real-world sensitive data.
+This project demonstrates how a utility-style enterprise outage platform can provide immediate ETA guidance, revise decisions from field evidence, protect partner operations with timeout fallback, and convert restoration outcomes into a measurable data product for future ML.

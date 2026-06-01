@@ -85,6 +85,28 @@ def recommendation_from_eta(eta_hours: float) -> str:
     return "DISPATCH_BACKUP_IF_BATTERY_WINDOW_AT_RISK"
 
 
+def partner_action_from_recommendation(recommendation: str) -> str:
+    actions = {
+        "HOLD_BACKUP_DISPATCH": "Wait for the next utility update before activating backup operations.",
+        "MONITOR_AND_PREPARE": "Prepare backup resources while monitoring revised field evidence.",
+        "DISPATCH_BACKUP_IF_BATTERY_WINDOW_AT_RISK": "Activate backup operations if the site battery window is at risk.",
+        "CLOSE_TICKET_AND_LOG_GROUND_TRUTH": "Close the partner incident and retain restoration ground truth.",
+    }
+    return actions.get(recommendation, "Review the latest outage decision with operations.")
+
+
+def policy_explanation(reason_code: str, eta_hours: float) -> str:
+    if reason_code == "TIMEOUT_FAILSAFE":
+        return f"No decisive field evidence arrived within {TIMEOUT_MINUTES} minutes, so the policy moved to a worst-case ETA."
+    if reason_code == "RESTORED":
+        return "A restoration signal closed the incident and converted the case into ground truth for analytics."
+    if eta_hours <= 2:
+        return "The current evidence indicates a short restoration window, so partner backup dispatch can remain on hold."
+    if eta_hours <= 5:
+        return "The current evidence indicates moderate uncertainty, so partner operations should prepare backup options."
+    return "The current evidence indicates a prolonged outage risk, so backup activation should be considered."
+
+
 def confidence_band(severity: str) -> str:
     if severity in {"critical", "high", "resolved", "timeout_worst_case"}:
         return "high"

@@ -10,7 +10,7 @@ test:
 	pytest -q
 
 coverage:
-	pytest --cov=apps --cov-report=term-missing
+	pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
 
 demo:
 	python -m apps.api.demo_scenario

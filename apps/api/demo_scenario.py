@@ -19,7 +19,7 @@ def main() -> None:
         create_res = client.post(
             "/api/v1/incidents",
             json={
-                "client_name": "DemoOperator",
+                "client_name": "DemoEnterprisePartner",
                 "site_id": "SITE-1001",
                 "province": "North Zone",
                 "scada_status": "OUTAGE_CONFIRMED",

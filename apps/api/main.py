@@ -55,7 +55,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok"}
+        return {
+            "status": "ok",
+            "service": "enterprise-outage-intelligence",
+            "version": settings.api_version,
+            "data_boundary": "synthetic-public-safe",
+        }
 
     def incident_payload(incident: dict) -> dict:
         return {
@@ -139,15 +144,28 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         <head>
           <title>Outage Intelligence Demo</title>
           <style>
-            body {{ font-family: Arial, sans-serif; margin: 24px; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            td, th {{ border: 1px solid #ddd; padding: 8px; }}
-            th {{ text-align: left; background: #f3f3f3; }}
+            body {{ font-family: Arial, sans-serif; margin: 24px; color: #172033; background: #f7f9fc; }}
+            .hero {{ background: #12355b; color: white; padding: 24px; border-radius: 16px; }}
+            .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 20px 0; }}
+            .card {{ background: white; border: 1px solid #d9e2ef; border-radius: 12px; padding: 14px; }}
+            .card strong {{ display: block; margin-bottom: 6px; color: #12355b; }}
+            table {{ border-collapse: collapse; width: 100%; background: white; }}
+            td, th {{ border: 1px solid #d9e2ef; padding: 8px; }}
+            th {{ text-align: left; background: #eaf1fb; }}
+            .small {{ color: #526070; }}
           </style>
         </head>
         <body>
-          <h1>Outage Intelligence Demo</h1>
-          <p>Simple HTML view for incident state, ETA revisions, and operational recommendation.</p>
+          <section class="hero">
+            <h1>Enterprise Outage Intelligence</h1>
+            <p>Public-safe product prototype for utility-to-enterprise coordination across outage ETA, partner action, audit trail, and ML-ready ground truth.</p>
+          </section>
+          <section class="cards">
+            <div class="card"><strong>1. Incident opened</strong><span class="small">Enterprise partner sends a synthetic outage event.</span></div>
+            <div class="card"><strong>2. ETA returned</strong><span class="small">Decision policy returns an immediate partner recommendation.</span></div>
+            <div class="card"><strong>3. Evidence revises ETA</strong><span class="small">Field signals update confidence, reason code, and action.</span></div>
+            <div class="card"><strong>4. Ground truth captured</strong><span class="small">Restoration closes the loop for analytics and ML baselines.</span></div>
+          </section>
           <table>
             <thead>
               <tr>

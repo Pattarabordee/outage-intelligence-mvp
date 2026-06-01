@@ -1,27 +1,28 @@
-# Sequence Diagram
+# Partner Coordination Sequence
 
 ```mermaid
 sequenceDiagram
-    participant C as Client System
-    participant A as API Gateway
-    participant R as Rules Engine
-    participant D as Incident DB
+    participant P as Enterprise Partner System
+    participant U as Utility Operations
+    participant A as Enterprise Outage API
+    participant R as Decision Policy Engine
+    participant D as Incident + Audit Store
 
-    C->>A: POST /incidents (site outage)
-    A->>R: initial ETA from SCADA state
-    R-->>A: ETA = 2h, hold recommendation
-    A->>D: create incident
-    A-->>C: immediate hold response
+    P->>A: POST /incidents with source_event_id
+    A->>R: evaluate initial outage state
+    R-->>A: ETA, confidence, partner action
+    A->>D: create incident + audit event
+    A-->>P: 201 Created with decision object
 
-    Note over C,D: Later, field evidence arrives
+    Note over U,D: Later, public-safe field evidence arrives
 
-    C->>A: POST /signals/field
-    A->>R: evaluate text severity
-    R-->>A: severe damage, ETA = 7h
-    A->>D: update incident ETA and reason
-    A-->>C: revised operational recommendation
+    U->>A: POST /signals/field
+    A->>R: evaluate synthetic field signal
+    R-->>A: revised ETA and policy explanation
+    A->>D: persist signal + audit event
+    A-->>P: revised operational decision
 
-    C->>A: POST /restore
+    U->>A: POST /restore
     A->>D: close incident and log restored_at
-    A-->>C: closed ticket
+    A-->>P: closed incident with ground truth
 ```

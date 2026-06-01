@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class IncidentCreate(BaseModel):
-    client_name: str = Field(..., examples=["DemoOperator"])
+    client_name: str = Field(..., examples=["DemoEnterprisePartner"])
     site_id: str = Field(..., examples=["SITE-1001"])
     province: str = Field(..., examples=["North Zone"])
     scada_status: Literal["OUTAGE_CONFIRMED", "POWER_NORMAL", "UNKNOWN"] = "OUTAGE_CONFIRMED"
@@ -81,10 +81,13 @@ class IncidentEventOut(BaseModel):
 class DecisionOut(BaseModel):
     eta_hours: float
     recommendation: str
+    partner_action: str
     confidence_band: str
     reason_code: str
     policy_version: str
     prediction_time: datetime
+    policy_explanation: str
+    sla_behavior: dict[str, Any] = Field(default_factory=dict)
 
 
 class ImmediateResponse(BaseModel):

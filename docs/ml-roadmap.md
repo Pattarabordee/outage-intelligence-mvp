@@ -1,15 +1,16 @@
-# ML Roadmap
+# ML Data Product Roadmap
 
-The MVP deliberately starts with rules because they are fast to build and easy to explain. The long-term value comes from the data exhaust it captures.
+The product starts with explainable rules because enterprise outage decisions need transparent reasoning before model complexity. The long-term value comes from closed-loop ground truth and partner-level evaluation.
 
-## Supervised learning targets
+## Supervised Learning Targets
 
-- actual restoration time
+- Actual restoration duration
 - ETA error
-- dispatch recommendation quality
-- probability of prolonged outage
+- Prolonged-outage probability
+- Partner action quality
+- Timeout fallback frequency
 
-## Dataset export
+## Dataset Export
 
 Closed incidents can be exported as JSONL for offline analysis:
 
@@ -18,6 +19,7 @@ python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.j
 ```
 
 Each row includes:
+
 - `prediction_time`
 - `actual_restoration_duration_hours`
 - `initial_eta_hours`
@@ -25,7 +27,7 @@ Each row includes:
 - `rule_version`
 - `feature_snapshot`
 
-## Baseline model
+## Baseline Model
 
 The first baseline is intentionally simple and reproducible:
 
@@ -33,28 +35,35 @@ The first baseline is intentionally simple and reproducible:
 python scripts/train_eta_baseline.py
 ```
 
-It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. This gives the project a measurable floor before introducing richer models.
+It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. This provides a measurable floor before introducing richer supervised-learning models.
 
-## Candidate features
+## Candidate Features
 
 Structured:
+
 - site class
-- region / weather context
+- partner class
+- region or weather context
 - network segment class
 - outage start time
 - initial SCADA condition
 - number of field signals
 - time since incident open
+- timeout applied flag
 
 Text-derived:
+
 - cause keywords
 - severity phrases
 - repair-action phrases
 - restoration confidence phrases
 
-## Future models
+## Future Models
 
-- ETA regression
-- survival analysis for restoration time
-- severity classification
-- dispatch decision policy optimization
+- ETA regression baseline
+- Prolonged-outage classifier
+- Survival analysis for restoration time
+- Partner-level calibration and reliability reports
+- Dispatch decision policy optimization
+
+Any future model should be evaluated against the current rules-first baseline before being used for operational recommendations.

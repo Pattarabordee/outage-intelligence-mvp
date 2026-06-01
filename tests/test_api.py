@@ -2,7 +2,7 @@ from __future__ import annotations
 
 def create_incident(client, site_id: str = "SITE-1001", **overrides):
     payload = {
-        "client_name": "DemoOperator",
+        "client_name": "DemoEnterprisePartner",
         "site_id": site_id,
         "province": "North Zone",
         "scada_status": "OUTAGE_CONFIRMED",
@@ -19,6 +19,9 @@ def test_create_incident_and_revise_eta(client):
     incident_id = payload["incident"]["id"]
     assert payload["incident"]["current_eta_hours"] == 2.0
     assert payload["decision"]["policy_version"] == "rules-v1"
+    assert payload["decision"]["partner_action"].startswith("Wait")
+    assert payload["decision"]["sla_behavior"]["timeout_minutes"] == 120
+    assert "source_event_id" in payload["decision"]["sla_behavior"]["idempotency_fields"]
 
     signal_res = client.post(
         f"/api/v1/incidents/{incident_id}/signals/field",
@@ -31,6 +34,8 @@ def test_create_incident_and_revise_eta(client):
     signal_payload = signal_res.json()
     assert signal_payload["incident"]["current_eta_hours"] == 7.0
     assert signal_payload["incident"]["reason_code"] in {"STRUCTURAL_DAMAGE", "BROKEN_CONDUCTOR"}
+    assert signal_payload["decision"]["partner_action"].startswith("Activate")
+    assert "prolonged outage risk" in signal_payload["decision"]["policy_explanation"]
     assert signal_payload["events"][-1]["event_type"] == "ETA_REVISED"
 
 
@@ -55,6 +60,18 @@ def test_timeout_worst_case_path(client):
     assert len(timeout_events) == 1
 
 
+def test_health_endpoint_declares_public_safe_enterprise_service(client):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "enterprise-outage-intelligence",
+        "version": "0.2.0",
+        "data_boundary": "synthetic-public-safe",
+    }
+
+
 def test_restore_closes_ticket_and_exports_dataset(client):
     create_res = create_incident(client, site_id="SITE-3001", province="South Zone")
     incident_id = create_res.json()["incident"]["id"]
@@ -76,7 +93,7 @@ def test_restore_closes_ticket_and_exports_dataset(client):
 
 def test_duplicate_source_event_id_returns_existing_incident(client):
     payload = {
-        "client_name": "DemoOperator",
+        "client_name": "DemoEnterprisePartner",
         "site_id": "SITE-4001",
         "province": "North Zone",
         "scada_status": "OUTAGE_CONFIRMED",

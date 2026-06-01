@@ -1,8 +1,8 @@
 # Evaluation
 
-This MVP keeps the first evaluation layer deliberately simple: rules are measured before adding heavier ML models.
+This prototype evaluates the rules-first decision layer before adding heavier ML models. The goal is to make partner-facing ETA decisions measurable, auditable, and safe to improve.
 
-## Rule Evaluation
+## API And Rule Regression
 
 Run the API and rule regression suite:
 
@@ -10,10 +10,10 @@ Run the API and rule regression suite:
 pytest -q
 ```
 
-Run coverage:
+Run coverage with the product-readiness gate:
 
 ```bash
-pytest --cov=apps --cov-report=term-missing
+pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
 ```
 
 ## ETA Baseline
@@ -30,4 +30,12 @@ The current baseline predicts restoration duration from the mean duration by `sc
 - `underestimation_rate`
 - trained group means
 
-This is intentionally simple. Its job is to make the ML data loop inspectable before adding richer models.
+## Product Metrics To Add Next
+
+- ETA error by partner class
+- Timeout fallback rate
+- Underestimation rate for prolonged outages
+- Decision calibration by confidence band
+- Percentage of incidents with complete audit trail and restoration ground truth
+
+These metrics turn the outage workflow into a data product rather than only a prototype API.

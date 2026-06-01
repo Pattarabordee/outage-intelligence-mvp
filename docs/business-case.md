@@ -1,32 +1,30 @@
 # Business Case
 
-This public-safe MVP demonstrates how outage intelligence can reduce uncertainty for power-sensitive operations without requiring a full machine-learning platform on day one.
+This public-safe prototype frames outage intelligence as an enterprise product for utility-to-partner coordination.
 
-## Core value proposition
+## Core Value Proposition
 
-An enterprise client that depends on continuous power typically faces two expensive mistakes:
+Large enterprise partners face expensive decisions during utility outages:
 
-1. Dispatch backup resources too early and absorb unnecessary operating cost.
-2. Dispatch too late and absorb avoidable service disruption.
+1. Activate backup operations too early and absorb unnecessary cost.
+2. Activate too late and risk service disruption.
+3. Operate without audit evidence explaining why ETA changed.
 
-The MVP reduces both mistakes by splitting the decision flow into two stages:
+The platform reduces uncertainty by converting utility outage events, field signals, timeout rules, and restoration ground truth into partner-ready decisions.
 
-- an immediate recommendation when the outage event is opened
-- a revised ETA when field evidence adds clarity
+## Why This Works As A Product Prototype
 
-## Why this works as an MVP
+- It is useful before any heavy ML model exists.
+- It gives partner operations an immediate ETA and action.
+- It keeps policy reasoning transparent and auditable.
+- It supports retry-safe partner integration through idempotency keys.
+- It creates the closed-loop dataset needed for future ETA accuracy improvement.
 
-- It is useful before any model training exists.
-- It keeps decision logic transparent through rule-based reasoning.
-- It creates the event history needed for later analytics and ML.
-- It is easy to explain to engineering, operations, and product stakeholders.
+## Enterprise Partner Scenarios
 
-## Why it works well in interviews
+- Telecom operator: decide whether backup power or fuel logistics should be activated for affected sites.
+- Data center operator: evaluate whether to escalate backup readiness while utility restoration is pending.
+- Industrial estate: coordinate tenant communication and backup operations.
+- Hospital network: prepare continuity operations based on ETA confidence and timeout fallback.
 
-This repository shows more than CRUD APIs. It demonstrates:
-
-- workflow design for real operational decisions
-- explainable ETA revision logic
-- timeout-based resilience for incomplete information
-- closed-loop data capture for future model training
-- disciplined public-safe documentation and demo packaging
+These are example partner classes only. The repo does not include or imply real customer data, live integrations, or named-company partnerships.
