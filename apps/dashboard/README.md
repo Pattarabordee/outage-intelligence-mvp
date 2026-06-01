@@ -22,6 +22,8 @@ The operator console is designed around live workflow questions:
 - what partner action should be taken for each active incident
 - whether closed-loop data coverage is ready for evaluation
 
+The v0.7 console adds a private-pilot triage layer: a highest-attention banner, priority labels, and next-step language for incidents and webhook queue items. This keeps the page useful for a NOC-style conversation without turning the public prototype into a production dashboard.
+
 The current implementation intentionally stays inside the FastAPI service so the repo remains easy to clone and run. A separate frontend can be added later when the operator dashboard needs richer interactivity.
 
 A production dashboard could be split into a separate frontend and add:

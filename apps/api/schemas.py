@@ -179,6 +179,7 @@ class ExecutiveSummaryOut(BaseModel):
 class OperatorConsoleSummaryOut(BaseModel):
     generated_at: datetime
     data_boundary: str
+    pilot_status: dict[str, Any] = Field(default_factory=dict)
     operating_questions: list[str] = Field(default_factory=list)
     metrics: dict[str, Any] = Field(default_factory=dict)
     active_incidents: list[dict[str, Any]] = Field(default_factory=list)

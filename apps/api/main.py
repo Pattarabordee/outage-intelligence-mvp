@@ -311,10 +311,13 @@ def create_app(
             return f"{round(value * 100)}%"
 
         metrics = summary["metrics"]
+        pilot_status = summary["pilot_status"]
+        attention_level = esc(pilot_status["highest_attention_level"].split("_", maxsplit=1)[0])
         metric_cards = "".join(
             [
                 f"<article class='metric {tone}'><span>{label}</span><strong>{esc(value)}</strong><em>{esc(note)}</em></article>"
                 for label, value, note, tone in [
+                    ("Attention items", metrics["priority_attention_items"], "review before handoff", "tone-red"),
                     ("Active incidents", metrics["active_incidents"], "open partner cases", "tone-blue"),
                     ("Timeout risk", metrics["timeout_risk_items"], "watch or fallback", "tone-amber"),
                     ("Webhook queue", metrics["webhook_queue_items"], "needs delivery attention", "tone-teal"),
@@ -326,48 +329,54 @@ def create_app(
         active_rows = "".join(
             [
                 "<tr>"
+                f"<td><span class='priority priority-{esc(item['attention_level']).lower()}'>{esc(item['operator_priority'])}</span></td>"
                 f"<td><strong>{esc(item['site_id'])}</strong><small>{esc(item['incident_id'])}</small></td>"
                 f"<td>{esc(item['status'])}</td>"
                 f"<td>{esc(item['eta_hours'])}h</td>"
                 f"<td>{esc(item['confidence_band'])}</td>"
                 f"<td>{esc(item['reason_code'])}</td>"
                 f"<td>{esc(item['minutes_since_update'])} min</td>"
+                f"<td>{esc(item['operator_next_step'])}</td>"
                 "</tr>"
                 for item in summary["active_incidents"]
             ]
         )
         if not active_rows:
-            active_rows = "<tr><td colspan='6'>No active synthetic incidents.</td></tr>"
+            active_rows = "<tr><td colspan='8'>No active synthetic incidents.</td></tr>"
 
         timeout_rows = "".join(
             [
                 "<tr>"
                 f"<td><span class='risk risk-{esc(item['risk_level'])}'>{esc(item['risk_level'])}</span></td>"
+                f"<td><span class='priority priority-{esc(item['operator_priority'].split('_', maxsplit=1)[0]).lower()}'>{esc(item['operator_priority'])}</span></td>"
                 f"<td>{esc(item['site_id'])}</td>"
                 f"<td>{esc(item['minutes_since_update'])}/{esc(item['timeout_minutes'])} min</td>"
                 f"<td>{esc(item['current_eta_hours'])}h</td>"
                 f"<td>{esc(item['reason_code'])}</td>"
+                f"<td>{esc(item['operator_next_step'])}</td>"
                 "</tr>"
                 for item in summary["timeout_risk"]
             ]
         )
         if not timeout_rows:
-            timeout_rows = "<tr><td colspan='5'>No timeout risk items.</td></tr>"
+            timeout_rows = "<tr><td colspan='7'>No timeout risk items.</td></tr>"
 
         webhook_rows = "".join(
             [
                 "<tr>"
                 f"<td>{esc(item['event_type'])}</td>"
                 f"<td>{esc(item['partner_id'])}</td>"
+                f"<td><span class='priority priority-{esc(item['operator_priority'].split('_', maxsplit=1)[0]).lower()}'>{esc(item['operator_priority'])}</span></td>"
                 f"<td><span class='queue-status'>{esc(item['status'])}</span></td>"
                 f"<td>{esc(item['attempt_count'])}/{esc(item['max_attempts'])}</td>"
                 f"<td>{esc(item['next_attempt_at'] or 'not scheduled')}</td>"
+                f"<td>{esc(item['operator_next_step'])}</td>"
                 "</tr>"
                 for item in summary["webhook_queue"]
             ]
         )
         if not webhook_rows:
-            webhook_rows = "<tr><td colspan='5'>No webhook queue items.</td></tr>"
+            webhook_rows = "<tr><td colspan='7'>No webhook queue items.</td></tr>"
 
         action_cards = "".join(
             [
@@ -375,6 +384,8 @@ def create_app(
                 f"<span>{esc(item['site_id'])}</span>"
                 f"<h3>{esc(item['recommendation'])}</h3>"
                 f"<p>{esc(item['partner_action'])}</p>"
+                f"<p class='next-step'><strong>Next step:</strong> {esc(item['operator_next_step'])}</p>"
+                f"<small class='priority-line'>{esc(item['operator_priority'])}</small>"
                 f"<small>{esc(item['policy_explanation'])}</small>"
                 "</article>"
                 for item in summary["partner_actions"]
@@ -419,6 +430,7 @@ def create_app(
               --amber: #b45309;
               --green: #047857;
               --red: #b91c1c;
+              --red-dark: #7f1d1d;
               --focus: #f59e0b;
             }}
             * {{ box-sizing: border-box; }}
@@ -460,14 +472,47 @@ def create_app(
             .badge {{ display: inline-flex; min-height: 32px; align-items: center; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; padding: 5px 12px; background: rgba(255,255,255,.12); font-weight: 800; }}
             .questions {{ border: 1px solid rgba(255,255,255,.28); border-radius: 20px; padding: 18px; background: rgba(255,255,255,.12); }}
             .questions li {{ margin: 7px 0; }}
-            .metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }}
+            .operations-strip {{
+              display: grid;
+              grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr);
+              gap: 14px;
+              margin: 18px 0;
+            }}
+            .brief-card {{
+              display: flex;
+              min-height: 118px;
+              flex-direction: column;
+              justify-content: center;
+              border: 1px solid #f2b8b5;
+              border-left: 8px solid var(--red);
+              border-radius: 22px;
+              padding: 18px;
+              background: linear-gradient(135deg, #fff7ed 0%, #fff1f2 100%);
+              box-shadow: 0 14px 32px rgba(127, 29, 29, .1);
+            }}
+            .brief-card strong {{ color: var(--red-dark); font-size: clamp(1.35rem, 3vw, 2.25rem); letter-spacing: -.045em; }}
+            .brief-card span {{ color: var(--muted); font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }}
+            .brief-card p {{ margin: 8px 0 0; color: var(--ink); }}
+            .status-card {{
+              border: 1px solid var(--line);
+              border-radius: 22px;
+              padding: 18px;
+              background: rgba(255,255,255,.86);
+            }}
+            .status-card dl {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }}
+            .status-card dt {{ color: var(--muted); font-size: .78rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }}
+            .status-card dd {{ margin: 4px 0 0; color: var(--navy); font-weight: 900; }}
+            .metrics {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }}
+            .operations-strip > *, .metrics > *, .layout > *, .layout > div {{ min-width: 0; }}
             .metric, .panel, .action-card {{
               background: rgba(255,255,255,.9);
               border: 1px solid var(--line);
               border-radius: 20px;
               box-shadow: 0 10px 26px rgba(16, 25, 35, 0.08);
+              min-width: 0;
             }}
             .metric {{ padding: 18px; border-top: 5px solid var(--blue); min-height: 128px; }}
+            .metric.tone-red {{ border-top-color: var(--red); }}
             .metric.tone-amber {{ border-top-color: var(--amber); }}
             .metric.tone-teal {{ border-top-color: var(--teal); }}
             .metric.tone-green {{ border-top-color: var(--green); }}
@@ -475,26 +520,33 @@ def create_app(
             .metric strong {{ display: block; margin: 8px 0 4px; color: var(--navy); font-size: 2rem; line-height: 1; }}
             .metric em, small {{ color: var(--muted); font-style: normal; }}
             .layout {{ display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 18px; }}
-            .panel {{ padding: 22px; margin-top: 18px; overflow-x: auto; }}
-            table {{ width: 100%; border-collapse: collapse; }}
+            .panel {{ max-width: 100%; padding: 22px; margin-top: 18px; overflow-x: auto; }}
+            table {{ width: 100%; min-width: 760px; border-collapse: collapse; }}
             caption {{ text-align: left; color: var(--navy); font-weight: 900; margin-bottom: 10px; }}
             th, td {{ padding: 11px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }}
             th {{ color: var(--navy); background: #efe5d5; font-size: .86rem; }}
             td small {{ display: block; margin-top: 4px; }}
-            .risk, .queue-status {{ display: inline-flex; min-height: 28px; align-items: center; border-radius: 999px; padding: 4px 10px; font-weight: 900; }}
+            .risk, .queue-status, .priority {{ display: inline-flex; min-height: 28px; align-items: center; border-radius: 999px; padding: 4px 10px; font-weight: 900; white-space: nowrap; }}
             .risk-high, .risk-applied {{ background: #fee2e2; color: var(--red); }}
             .risk-watch {{ background: #fef3c7; color: var(--amber); }}
             .queue-status {{ background: #dbeafe; color: var(--blue); }}
+            .priority-p1 {{ background: #fee2e2; color: var(--red-dark); }}
+            .priority-p2 {{ background: #fef3c7; color: var(--amber); }}
+            .priority-p3 {{ background: #dcfce7; color: var(--green); }}
             .action-grid {{ display: grid; gap: 12px; }}
             .action-card {{ padding: 16px; }}
             .action-card h3 {{ margin: 7px 0; color: var(--navy); }}
+            .next-step {{ padding: 10px 12px; border-radius: 14px; background: #f8fafc; }}
+            .priority-line {{ display: block; margin-bottom: 6px; color: var(--amber); font-weight: 900; }}
             .safe-list {{ margin: 0; padding-left: 20px; }}
             .safe-list li {{ margin: 6px 0; }}
             a:focus, button:focus, [tabindex]:focus {{ outline: 3px solid var(--focus); outline-offset: 3px; }}
             @media (max-width: 900px) {{
               main {{ padding: 16px 12px 40px; }}
-              .hero, .layout, .metrics {{ grid-template-columns: 1fr; }}
+              .hero, .layout, .metrics, .operations-strip, .status-card dl {{ grid-template-columns: 1fr; }}
               .hero {{ padding: 22px; border-radius: 22px; }}
+              table {{ min-width: 680px; }}
+              .priority {{ white-space: normal; }}
               th, td {{ padding: 9px 7px; }}
             }}
           </style>
@@ -514,6 +566,21 @@ def create_app(
               </aside>
             </section>
 
+            <section class="operations-strip" aria-labelledby="pilot-status-title">
+              <article class="brief-card">
+                <span id="pilot-status-title">Highest Attention</span>
+                <strong>{attention_level}</strong>
+                <p>{esc(pilot_status['operator_brief'])}</p>
+              </article>
+              <article class="status-card" aria-label="Pilot readiness status">
+                <dl>
+                  <div><dt>Mode</dt><dd>{esc(pilot_status['mode'])}</dd></div>
+                  <div><dt>Readiness</dt><dd>{esc(pilot_status['readiness'])}</dd></div>
+                  <div><dt>Boundary</dt><dd>{esc(summary['data_boundary'])}</dd></div>
+                </dl>
+              </article>
+            </section>
+
             <section aria-labelledby="status-title">
               <h2 id="status-title">Current Operating Status</h2>
               <div class="metrics">{metric_cards}</div>
@@ -525,7 +592,7 @@ def create_app(
                   <h2 id="active-title">Active Incidents</h2>
                   <table>
                     <caption>Open cases that may require partner action</caption>
-                    <thead><tr><th>Site</th><th>Status</th><th>ETA</th><th>Confidence</th><th>Reason</th><th>Last update</th></tr></thead>
+                    <thead><tr><th>Priority</th><th>Site</th><th>Status</th><th>ETA</th><th>Confidence</th><th>Reason</th><th>Last update</th><th>Next step</th></tr></thead>
                     <tbody>{active_rows}</tbody>
                   </table>
                 </section>
@@ -534,7 +601,7 @@ def create_app(
                   <h2 id="timeout-title">Timeout Risk</h2>
                   <table>
                     <caption>Incidents approaching or already using failsafe ETA policy</caption>
-                    <thead><tr><th>Risk</th><th>Site</th><th>Timer</th><th>ETA</th><th>Reason</th></tr></thead>
+                    <thead><tr><th>Risk</th><th>Priority</th><th>Site</th><th>Timer</th><th>ETA</th><th>Reason</th><th>Next step</th></tr></thead>
                     <tbody>{timeout_rows}</tbody>
                   </table>
                 </section>
@@ -543,7 +610,7 @@ def create_app(
                   <h2 id="webhook-queue-title">Webhook Queue</h2>
                   <table>
                     <caption>Sandbox delivery records needing retry or operator awareness</caption>
-                    <thead><tr><th>Event</th><th>Partner</th><th>Status</th><th>Attempts</th><th>Next attempt</th></tr></thead>
+                    <thead><tr><th>Event</th><th>Partner</th><th>Priority</th><th>Status</th><th>Attempts</th><th>Next attempt</th><th>Next step</th></tr></thead>
                     <tbody>{webhook_rows}</tbody>
                   </table>
                 </section>

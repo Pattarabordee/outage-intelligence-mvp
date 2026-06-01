@@ -203,12 +203,19 @@ Response includes:
 
 - `operating_questions`: the operational questions the console is organized around
 - `metrics`: active incident count, timeout risk count, webhook queue count, closed-loop rows, and partner profiles
+- `pilot_status`: read-only pilot mode, readiness label, highest attention level, and operator brief
 - `active_incidents`: current synthetic cases with ETA, confidence, reason code, and minutes since update
 - `timeout_risk`: incidents approaching or already using timeout fallback
 - `webhook_queue`: local outbox records that are queued, retry scheduled, failed, or exhausted
 - `partner_actions`: recommended partner-facing operational action per active incident
 - `closed_loop_data`: restoration coverage and evaluation readiness indicators
 - `partner_scope_status`: public-safe partner class, synthetic site-prefix scope, and webhook mode
+
+Operator fields:
+
+- `operator_priority`: priority label such as `P1_TIMEOUT_WATCH`, `P1_FAILSAFE_ACTIVE`, or `P2_RETRY_PENDING`
+- `operator_next_step`: short public-safe action guidance for the pilot operator walkthrough
+- `attention_level`: compact `P1`, `P2`, or `P3` grouping for active incident rendering
 
 Security boundary:
 

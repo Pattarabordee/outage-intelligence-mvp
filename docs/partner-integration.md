@@ -101,6 +101,16 @@ The operator console is intentionally different from the executive walkthrough:
 
 The JSON feed at `/api/v1/operator/console-summary` is read-only and sanitized. It does not expose private delivery headers, raw field text, signing metadata, or callback details.
 
+## 3-Minute Private Pilot Walkthrough
+
+Use this sequence when presenting the sandbox to utility operations, enterprise account, or partner NOC stakeholders:
+
+1. Open `/demo/incidents` and explain the value path: event received, ETA returned, field signal revises ETA, timeout protects stalled cases, restoration creates ground truth.
+2. Switch to `/demo/operator-console` and start with the highest attention banner.
+3. Review active incidents using `operator_priority` and `operator_next_step` instead of scanning every raw record.
+4. Show timeout risk and webhook queue as the two operational queues that need attention before partner handoff.
+5. Close with closed-loop data coverage and explain which production gaps remain before live use.
+
 ## Data Minimization
 
 Send only the operational fields needed for outage decisions. Avoid real names, chat messages, endpoint URLs, topology, GPS coordinates, and commercial terms in public prototype environments.

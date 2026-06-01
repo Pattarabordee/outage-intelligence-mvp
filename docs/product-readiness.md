@@ -13,6 +13,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Local webhook outbox with signed metadata, retry scheduling, and sandbox delivery attempts
 - Executive demo summary feed and public-safe walkthrough page
 - Operator pilot console summary feed and public-safe workflow page
+- Operator priority and next-step labels for private pilot discussion
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -32,6 +33,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 ## Recommended Rollout Path
 
 1. Keep the current repo as a reference implementation and product demo.
-2. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
-3. Run side-by-side evaluation against historical synthetic or de-identified incidents.
-4. Promote only explainable, measured policy changes into operational workflows.
+2. Use the executive and operator demo surfaces to align the private pilot workflow.
+3. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
+4. Run side-by-side evaluation against historical synthetic or de-identified incidents.
+5. Promote only explainable, measured policy changes into operational workflows.

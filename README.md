@@ -159,6 +159,16 @@ The console is organized around operational questions rather than vanity metrics
 - whether closed-loop restoration data is ready for evaluation
 - whether partner scope metadata is visible without exposing private configuration
 
+### 9. Run a private pilot demo flow
+
+Use the executive page first to explain value, then switch to the operator console to discuss workflow readiness:
+
+1. Show the executive journey from outage event to ETA, field revision, restoration, and ML-ready ground truth.
+2. Open the operator console and start from the highest attention banner.
+3. Review active incidents by priority and next operator step.
+4. Inspect timeout risk and webhook queue before discussing partner handoff.
+5. Close with closed-loop coverage and the remaining production gaps.
+
 ```bash
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
 python scripts/train_eta_baseline.py

@@ -218,8 +218,12 @@ def test_operator_console_summary_is_public_safe_and_actionable(auth_client, par
     assert payload["metrics"]["timeout_risk_items"] >= 1
     assert payload["metrics"]["webhook_queue_items"] >= 1
     assert payload["closed_loop_data"]["dataset_rows"] >= 1
+    assert payload["pilot_status"]["readiness"] == "private-pilot-discussion-ready"
+    assert payload["metrics"]["priority_attention_items"] >= 1
     assert any(item["risk_level"] in {"applied", "high"} for item in payload["timeout_risk"])
     assert any(item["status"] in {"queued", "retry_scheduled"} for item in payload["webhook_queue"])
+    assert all("operator_priority" in item for item in payload["active_incidents"])
+    assert all("operator_next_step" in item for item in payload["webhook_queue"])
     assert payload["partner_actions"]
     for term in SENSITIVE_DEMO_TERMS:
         assert term not in response_text
@@ -234,6 +238,8 @@ def test_operator_console_page_renders_sections_without_sensitive_values(auth_cl
     assert response.status_code == 200
     for section in ["Active Incidents", "Timeout Risk", "Webhook Queue", "Partner Actions", "Closed-loop Data"]:
         assert section in html
+    for label in ["Highest Attention", "Current Operating Status", "Next step"]:
+        assert label in html
     assert "Skip to main content" in html
     for term in SENSITIVE_DEMO_TERMS:
         assert term not in html

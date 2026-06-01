@@ -910,6 +910,16 @@ class IncidentService:
         active_cards = []
         timeout_cards = []
         partner_action_cards = []
+
+        def priority_for_incident(incident: JSONDict, decision: JSONDict, timeout_status: str) -> tuple[str, str]:
+            if incident["timeout_applied"]:
+                return "P1_FAILSAFE_ACTIVE", "Confirm partner contingency plan and keep the timeout ETA visible."
+            if timeout_status == "high":
+                return "P1_TIMEOUT_WATCH", "Review latest evidence before the timeout fallback is triggered."
+            if decision["recommendation"] == "DISPATCH_BACKUP_IF_BATTERY_WINDOW_AT_RISK":
+                return "P2_BACKUP_DECISION", "Coordinate partner backup activation while field work continues."
+            return "P3_MONITOR", "Monitor for the next field update and keep partner operations informed."
+
         for incident in active_incidents:
             decision = self.decision_for_incident(incident)
             reference_time = incident["last_signal_at"] or incident["created_at"]
@@ -919,6 +929,7 @@ class IncidentService:
                 timeout_status = "high"
             elif not incident["timeout_applied"] and minutes_since_update < TIMEOUT_MINUTES * 0.75:
                 timeout_status = "normal"
+            operator_priority, operator_next_step = priority_for_incident(incident, decision, timeout_status)
 
             incident_card = {
                 "incident_id": incident["id"],
@@ -930,6 +941,9 @@ class IncidentService:
                 "confidence_band": decision["confidence_band"],
                 "partner_action": decision["partner_action"],
                 "minutes_since_update": minutes_since_update,
+                "attention_level": operator_priority.split("_", maxsplit=1)[0],
+                "operator_priority": operator_priority,
+                "operator_next_step": operator_next_step,
             }
             active_cards.append(incident_card)
             partner_action_cards.append(
@@ -939,6 +953,8 @@ class IncidentService:
                     "recommendation": decision["recommendation"],
                     "partner_action": decision["partner_action"],
                     "policy_explanation": decision["policy_explanation"],
+                    "operator_priority": operator_priority,
+                    "operator_next_step": operator_next_step,
                 }
             )
             if timeout_status != "normal":
@@ -951,6 +967,8 @@ class IncidentService:
                         "timeout_minutes": TIMEOUT_MINUTES,
                         "current_eta_hours": incident["current_eta_hours"],
                         "reason_code": incident["reason_code"],
+                        "operator_priority": operator_priority,
+                        "operator_next_step": operator_next_step,
                     }
                 )
 
@@ -959,27 +977,53 @@ class IncidentService:
             for delivery in deliveries
             if delivery["status"] in {"queued", "retry_scheduled", "failed", "exhausted"}
         ]
+
+        def priority_for_delivery(delivery: JSONDict) -> tuple[str, str]:
+            if delivery["status"] == "exhausted":
+                return "P1_DELIVERY_EXHAUSTED", "Escalate sandbox delivery review before partner walkthrough."
+            if delivery["status"] in {"retry_scheduled", "failed"}:
+                return "P2_RETRY_PENDING", "Track retry state and confirm the partner-facing event remains deduplicated."
+            return "P3_DELIVERY_QUEUED", "Keep queued event visible until the sandbox worker records an attempt."
+
         webhook_queue = [
-            {
-                "event_id": delivery["event_id"],
-                "event_type": delivery["event_type"],
-                "partner_id": delivery["partner_id"],
-                "incident_id": delivery["incident_id"],
-                "status": delivery["status"],
-                "attempt_count": delivery["attempt_count"],
-                "max_attempts": delivery["max_attempts"],
-                "next_attempt_at": dtstr(delivery["next_attempt_at"]),
-            }
+            self._operator_webhook_queue_item(delivery, priority_for_delivery(delivery))
             for delivery in actionable_deliveries[-8:]
         ]
 
         closed_incidents = [incident for incident in incidents if incident["status"] == "CLOSED"]
         restored_count = len([incident for incident in closed_incidents if incident["restored_at"] is not None])
         ground_truth_coverage = round(restored_count / len(closed_incidents), 3) if closed_incidents else 0.0
+        priority_rank = {
+            "P1_FAILSAFE_ACTIVE": 0,
+            "P1_TIMEOUT_WATCH": 1,
+            "P1_DELIVERY_EXHAUSTED": 2,
+            "P2_BACKUP_DECISION": 3,
+            "P2_RETRY_PENDING": 4,
+            "P3_MONITOR": 5,
+            "P3_DELIVERY_QUEUED": 6,
+        }
+        active_cards.sort(key=lambda item: priority_rank.get(item["operator_priority"], 99))
+        timeout_cards.sort(key=lambda item: priority_rank.get(item["operator_priority"], 99))
+        partner_action_cards.sort(key=lambda item: priority_rank.get(item["operator_priority"], 99))
+        webhook_queue.sort(key=lambda item: priority_rank.get(item["operator_priority"], 99))
+        highest_priority = next(
+            (
+                item["operator_priority"]
+                for item in [*timeout_cards, *webhook_queue, *partner_action_cards]
+                if item["operator_priority"].startswith("P1")
+            ),
+            "P2_MONITOR_READY" if active_cards or webhook_queue else "P3_STABLE",
+        )
 
         return {
             "generated_at": now,
             "data_boundary": "synthetic-public-safe",
+            "pilot_status": {
+                "mode": "sandbox-read-only",
+                "readiness": "private-pilot-discussion-ready",
+                "highest_attention_level": highest_priority,
+                "operator_brief": "Review timeout risk, webhook queue, and partner action cards before the pilot walkthrough.",
+            },
             "operating_questions": [
                 "Which incidents need partner action now?",
                 "Which incidents are near timeout fallback?",
@@ -992,6 +1036,7 @@ class IncidentService:
                 "webhook_queue_items": len(webhook_queue),
                 "closed_loop_rows": len(closed_dataset),
                 "partner_profiles": len(profiles),
+                "priority_attention_items": len(timeout_cards) + len(webhook_queue),
             },
             "active_incidents": active_cards,
             "timeout_risk": timeout_cards,
@@ -1017,6 +1062,21 @@ class IncidentService:
                 "Raw field signal text is excluded",
                 "Only synthetic partner, site, and incident identifiers are rendered",
             ],
+        }
+
+    def _operator_webhook_queue_item(self, delivery: JSONDict, priority: tuple[str, str]) -> JSONDict:
+        operator_priority, operator_next_step = priority
+        return {
+            "event_id": delivery["event_id"],
+            "event_type": delivery["event_type"],
+            "partner_id": delivery["partner_id"],
+            "incident_id": delivery["incident_id"],
+            "status": delivery["status"],
+            "attempt_count": delivery["attempt_count"],
+            "max_attempts": delivery["max_attempts"],
+            "next_attempt_at": dtstr(delivery["next_attempt_at"]),
+            "operator_priority": operator_priority,
+            "operator_next_step": operator_next_step,
         }
 
     def export_closed_incidents_dataset(self) -> list[JSONDict]:
