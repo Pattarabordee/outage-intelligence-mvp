@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .database import fetch_all, fetch_one, get_connection, init_db
+from .exceptions import StateConflictError
 from .rules import (
     POLICY_VERSION,
     TIMEOUT_MINUTES,
@@ -16,10 +19,7 @@ from .rules import (
     initial_eta_from_scada,
     recommendation_from_eta,
 )
-
-
-class StateConflictError(RuntimeError):
-    pass
+from .types import JSONDict
 
 
 def utcnow() -> datetime:
@@ -38,7 +38,7 @@ def _loads_json(value: str | None, fallback):
     return json.loads(value) if value else fallback
 
 
-def row_to_incident(row: sqlite3.Row) -> dict:
+def row_to_incident(row: sqlite3.Row) -> JSONDict:
     return {
         "id": row["id"],
         "client_name": row["client_name"],
@@ -63,7 +63,7 @@ def row_to_incident(row: sqlite3.Row) -> dict:
     }
 
 
-def row_to_signal(row: sqlite3.Row) -> dict:
+def row_to_signal(row: sqlite3.Row) -> JSONDict:
     return {
         "id": row["id"],
         "incident_id": row["incident_id"],
@@ -79,7 +79,7 @@ def row_to_signal(row: sqlite3.Row) -> dict:
     }
 
 
-def row_to_event(row: sqlite3.Row) -> dict:
+def row_to_event(row: sqlite3.Row) -> JSONDict:
     return {
         "id": row["id"],
         "incident_id": row["incident_id"],
@@ -101,8 +101,14 @@ class IncidentService:
         self.db_path = db_path
         init_db(self.db_path)
 
-    def _conn(self):
-        return get_connection(self.db_path)
+    @contextmanager
+    def _conn(self) -> Iterator[sqlite3.Connection]:
+        conn = get_connection(self.db_path)
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def create_incident(
         self,
@@ -112,7 +118,7 @@ class IncidentService:
         scada_status: str,
         source_event_id: str | None = None,
         idempotency_key: str | None = None,
-    ) -> tuple[dict, bool]:
+    ) -> tuple[JSONDict, bool]:
         idempotency_value = source_event_id or idempotency_key
         if idempotency_value:
             existing = self.get_incident_by_source_event_id(idempotency_value)
@@ -181,29 +187,29 @@ class IncidentService:
             conn.commit()
         return self.get_incident(incident_id), True
 
-    def get_incident_by_source_event_id(self, source_event_id: str) -> dict | None:
+    def get_incident_by_source_event_id(self, source_event_id: str) -> JSONDict | None:
         with self._conn() as conn:
             row = fetch_one(conn, "SELECT * FROM incidents WHERE source_event_id = ?", (source_event_id,))
             return row_to_incident(row) if row else None
 
-    def get_incident(self, incident_id: str) -> dict:
+    def get_incident(self, incident_id: str) -> JSONDict:
         with self._conn() as conn:
             row = fetch_one(conn, "SELECT * FROM incidents WHERE id = ?", (incident_id,))
             if not row:
                 raise KeyError(f"Incident not found: {incident_id}")
             return row_to_incident(row)
 
-    def list_incidents(self) -> list[dict]:
+    def list_incidents(self) -> list[JSONDict]:
         with self._conn() as conn:
             rows = fetch_all(conn, "SELECT * FROM incidents ORDER BY created_at DESC")
             return [row_to_incident(r) for r in rows]
 
-    def list_signals(self, incident_id: str) -> list[dict]:
+    def list_signals(self, incident_id: str) -> list[JSONDict]:
         with self._conn() as conn:
             rows = fetch_all(conn, "SELECT * FROM signals WHERE incident_id = ? ORDER BY created_at ASC", (incident_id,))
             return [row_to_signal(r) for r in rows]
 
-    def list_events(self, incident_id: str) -> list[dict]:
+    def list_events(self, incident_id: str) -> list[JSONDict]:
         with self._conn() as conn:
             rows = fetch_all(conn, "SELECT * FROM incident_events WHERE incident_id = ? ORDER BY created_at ASC", (incident_id,))
             return [row_to_event(r) for r in rows]
@@ -215,7 +221,7 @@ class IncidentService:
         raw_text: str,
         observed_at: datetime | None = None,
         source_signal_id: str | None = None,
-    ) -> tuple[dict, dict]:
+    ) -> tuple[JSONDict, JSONDict]:
         incident = self.get_incident(incident_id)
         if incident["status"] == "CLOSED":
             raise StateConflictError(f"Incident is already closed: {incident_id}")
@@ -292,12 +298,12 @@ class IncidentService:
             conn.commit()
         return self.get_incident(incident_id), signal
 
-    def get_signal_by_source_signal_id(self, source_signal_id: str) -> dict | None:
+    def get_signal_by_source_signal_id(self, source_signal_id: str) -> JSONDict | None:
         with self._conn() as conn:
             row = fetch_one(conn, "SELECT * FROM signals WHERE source_signal_id = ?", (source_signal_id,))
             return row_to_signal(row) if row else None
 
-    def apply_timeout_if_needed(self, incident_id: str) -> dict:
+    def apply_timeout_if_needed(self, incident_id: str) -> JSONDict:
         incident = self.get_incident(incident_id)
         if incident["restored_at"] is not None or incident["status"] == "CLOSED" or incident["timeout_applied"]:
             return incident
@@ -349,7 +355,7 @@ class IncidentService:
             conn.commit()
         return self.get_incident(incident_id)
 
-    def force_backdate_incident(self, incident_id: str, minutes_ago: int) -> dict:
+    def force_backdate_incident(self, incident_id: str, minutes_ago: int) -> JSONDict:
         reference = utcnow() - timedelta(minutes=minutes_ago)
         with self._conn() as conn:
             conn.execute(
@@ -359,7 +365,7 @@ class IncidentService:
             conn.commit()
         return self.get_incident(incident_id)
 
-    def restore_incident(self, incident_id: str, restored_by: str) -> dict:
+    def restore_incident(self, incident_id: str, restored_by: str) -> JSONDict:
         incident = self.get_incident(incident_id)
         if incident["status"] == "CLOSED":
             return incident
@@ -378,7 +384,7 @@ class IncidentService:
             conn.commit()
         return self.get_incident(incident_id)
 
-    def decision_for_incident(self, incident: dict) -> dict:
+    def decision_for_incident(self, incident: JSONDict) -> JSONDict:
         return {
             "eta_hours": incident["current_eta_hours"],
             "recommendation": incident["dispatch_decision"],
@@ -388,7 +394,7 @@ class IncidentService:
             "prediction_time": incident["updated_at"],
         }
 
-    def export_closed_incidents_dataset(self) -> list[dict]:
+    def export_closed_incidents_dataset(self) -> list[JSONDict]:
         with self._conn() as conn:
             rows = fetch_all(conn, "SELECT * FROM incidents WHERE status = 'CLOSED' ORDER BY restored_at ASC")
         dataset = []
@@ -423,7 +429,7 @@ class IncidentService:
         observed_at: datetime,
         source_signal_id: str | None,
         created_at: datetime,
-    ) -> dict:
+    ) -> JSONDict:
         cur = conn.execute(
             """
             INSERT INTO signals (
@@ -512,7 +518,7 @@ class IncidentService:
         new_eta_hours: float | None,
         reason_code: str,
         severity: str,
-        feature_snapshot: dict,
+        feature_snapshot: JSONDict,
         observed_at: datetime | None,
         created_at: datetime,
     ) -> None:

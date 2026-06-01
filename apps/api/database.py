@@ -76,26 +76,30 @@ def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
 
 
 def init_db(db_path: str | Path | None = None) -> None:
-    with get_connection(db_path) as conn:
-        conn.executescript(SCHEMA_SQL)
-        _ensure_column(conn, "incidents", "source_event_id", "TEXT")
-        _ensure_column(conn, "signals", "observed_at", "TEXT")
-        _ensure_column(conn, "signals", "source_signal_id", "TEXT")
-        conn.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_source_event_id
-            ON incidents(source_event_id)
-            WHERE source_event_id IS NOT NULL
-            """
-        )
-        conn.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_signals_source_signal_id
-            ON signals(source_signal_id)
-            WHERE source_signal_id IS NOT NULL
-            """
-        )
-        conn.commit()
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.executescript(SCHEMA_SQL)
+            _ensure_column(conn, "incidents", "source_event_id", "TEXT")
+            _ensure_column(conn, "signals", "observed_at", "TEXT")
+            _ensure_column(conn, "signals", "source_signal_id", "TEXT")
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_source_event_id
+                ON incidents(source_event_id)
+                WHERE source_event_id IS NOT NULL
+                """
+            )
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_signals_source_signal_id
+                ON signals(source_signal_id)
+                WHERE source_signal_id IS NOT NULL
+                """
+            )
+            conn.commit()
+    finally:
+        conn.close()
 
 
 def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:

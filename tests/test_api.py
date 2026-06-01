@@ -1,248 +1,172 @@
 from __future__ import annotations
 
-import os
-import tempfile
-
-from fastapi.testclient import TestClient
-
-from apps.api.main import create_app
-
-
-def make_client():
-    tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-    db_path = os.path.join(tmpdir.name, "test.db")
-    app = create_app(db_path=db_path)
-    return TestClient(app), tmpdir
+def create_incident(client, site_id: str = "SITE-1001", **overrides):
+    payload = {
+        "client_name": "DemoOperator",
+        "site_id": site_id,
+        "province": "North Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+    }
+    payload.update(overrides)
+    return client.post("/api/v1/incidents", json=payload)
 
 
-def test_create_incident_and_revise_eta():
-    client, tmp = make_client()
-    try:
-        create_res = client.post(
-            "/api/v1/incidents",
-            json={
-                "client_name": "DemoOperator",
-                "site_id": "SITE-1001",
-                "province": "North Zone",
-                "scada_status": "OUTAGE_CONFIRMED",
-            },
-        )
-        assert create_res.status_code == 201
-        assert create_res.headers["location"].startswith("/api/v1/incidents/")
-        payload = create_res.json()
-        incident_id = payload["incident"]["id"]
-        assert payload["incident"]["current_eta_hours"] == 2.0
-        assert payload["decision"]["policy_version"] == "rules-v1"
+def test_create_incident_and_revise_eta(client):
+    create_res = create_incident(client)
+    assert create_res.status_code == 201
+    assert create_res.headers["location"].startswith("/api/v1/incidents/")
+    payload = create_res.json()
+    incident_id = payload["incident"]["id"]
+    assert payload["incident"]["current_eta_hours"] == 2.0
+    assert payload["decision"]["policy_version"] == "rules-v1"
 
-        signal_res = client.post(
-            f"/api/v1/incidents/{incident_id}/signals/field",
-            json={
-                "channel": "FIELD_APP",
-                "raw_text": "Pole down and conductor snapped near segment A",
-            },
-        )
-        assert signal_res.status_code == 200
-        signal_payload = signal_res.json()
-        assert signal_payload["incident"]["current_eta_hours"] == 7.0
-        assert signal_payload["incident"]["reason_code"] in {"STRUCTURAL_DAMAGE", "BROKEN_CONDUCTOR"}
-        assert signal_payload["events"][-1]["event_type"] == "ETA_REVISED"
-    finally:
-        client.close()
-        tmp.cleanup()
+    signal_res = client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        json={
+            "channel": "FIELD_APP",
+            "raw_text": "Pole down and conductor snapped near segment A",
+        },
+    )
+    assert signal_res.status_code == 200
+    signal_payload = signal_res.json()
+    assert signal_payload["incident"]["current_eta_hours"] == 7.0
+    assert signal_payload["incident"]["reason_code"] in {"STRUCTURAL_DAMAGE", "BROKEN_CONDUCTOR"}
+    assert signal_payload["events"][-1]["event_type"] == "ETA_REVISED"
 
 
-def test_timeout_worst_case_path():
-    client, tmp = make_client()
-    try:
-        create_res = client.post(
-            "/api/v1/incidents",
-            json={
-                "client_name": "DemoOperator",
-                "site_id": "SITE-2001",
-                "province": "East Zone",
-                "scada_status": "UNKNOWN",
-            },
-        )
-        incident_id = create_res.json()["incident"]["id"]
+def test_timeout_worst_case_path(client):
+    create_res = create_incident(client, site_id="SITE-2001", province="East Zone", scada_status="UNKNOWN")
+    incident_id = create_res.json()["incident"]["id"]
 
-        # This test-only helper is intentionally not exposed through the public API surface.
-        app = client.app
-        app.state.service.force_backdate_incident(incident_id, minutes_ago=121)
+    # This test-only helper is intentionally not exposed through the public API surface.
+    client.app.state.service.force_backdate_incident(incident_id, minutes_ago=121)
 
-        timeout_res = client.post(f"/api/v1/incidents/{incident_id}/timeout-check")
-        assert timeout_res.status_code == 200
-        payload = timeout_res.json()
-        assert payload["timeout_applied"] is True
-        assert payload["current_eta_hours"] == 8.0
-        assert payload["reason_code"] == "TIMEOUT_FAILSAFE"
+    timeout_res = client.post(f"/api/v1/incidents/{incident_id}/timeout-check")
+    assert timeout_res.status_code == 200
+    payload = timeout_res.json()
+    assert payload["timeout_applied"] is True
+    assert payload["current_eta_hours"] == 8.0
+    assert payload["reason_code"] == "TIMEOUT_FAILSAFE"
 
-        second_timeout_res = client.post(f"/api/v1/incidents/{incident_id}/timeout-check")
-        assert second_timeout_res.status_code == 200
-        incident_res = client.get(f"/api/v1/incidents/{incident_id}")
-        timeout_events = [event for event in incident_res.json()["events"] if event["event_type"] == "TIMEOUT_APPLIED"]
-        assert len(timeout_events) == 1
-    finally:
-        client.close()
-        tmp.cleanup()
+    second_timeout_res = client.post(f"/api/v1/incidents/{incident_id}/timeout-check")
+    assert second_timeout_res.status_code == 200
+    incident_res = client.get(f"/api/v1/incidents/{incident_id}")
+    timeout_events = [event for event in incident_res.json()["events"] if event["event_type"] == "TIMEOUT_APPLIED"]
+    assert len(timeout_events) == 1
 
 
-def test_restore_closes_ticket():
-    client, tmp = make_client()
-    try:
-        create_res = client.post(
-            "/api/v1/incidents",
-            json={
-                "client_name": "DemoOperator",
-                "site_id": "SITE-3001",
-                "province": "South Zone",
-                "scada_status": "OUTAGE_CONFIRMED",
-            },
-        )
-        incident_id = create_res.json()["incident"]["id"]
-        restore_res = client.post(
-            f"/api/v1/incidents/{incident_id}/restore",
-            json={"restored_by": "SCADA_SENSOR"},
-        )
-        assert restore_res.status_code == 200
-        payload = restore_res.json()
-        assert payload["status"] == "CLOSED"
-        assert payload["severity"] == "resolved"
-        assert payload["current_eta_hours"] == 0.0
+def test_restore_closes_ticket_and_exports_dataset(client):
+    create_res = create_incident(client, site_id="SITE-3001", province="South Zone")
+    incident_id = create_res.json()["incident"]["id"]
+    restore_res = client.post(
+        f"/api/v1/incidents/{incident_id}/restore",
+        json={"restored_by": "SCADA_SENSOR"},
+    )
+    assert restore_res.status_code == 200
+    payload = restore_res.json()
+    assert payload["status"] == "CLOSED"
+    assert payload["severity"] == "resolved"
+    assert payload["current_eta_hours"] == 0.0
 
-        dataset = client.app.state.service.export_closed_incidents_dataset()
-        assert dataset[0]["incident_id"] == incident_id
-        assert "eta_error_hours" in dataset[0]
-        assert dataset[0]["rule_version"] == "rules-v1"
-    finally:
-        client.close()
-        tmp.cleanup()
+    dataset = client.app.state.service.export_closed_incidents_dataset()
+    assert dataset[0]["incident_id"] == incident_id
+    assert "eta_error_hours" in dataset[0]
+    assert dataset[0]["rule_version"] == "rules-v1"
 
 
-def test_duplicate_source_event_id_returns_existing_incident():
-    client, tmp = make_client()
-    try:
-        payload = {
-            "client_name": "DemoOperator",
-            "site_id": "SITE-4001",
-            "province": "North Zone",
-            "scada_status": "OUTAGE_CONFIRMED",
-            "source_event_id": "SRC-EVENT-4001",
-        }
-        first_res = client.post("/api/v1/incidents", json=payload)
-        second_res = client.post("/api/v1/incidents", json=payload)
+def test_duplicate_source_event_id_returns_existing_incident(client):
+    payload = {
+        "client_name": "DemoOperator",
+        "site_id": "SITE-4001",
+        "province": "North Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-EVENT-4001",
+    }
+    first_res = client.post("/api/v1/incidents", json=payload)
+    second_res = client.post("/api/v1/incidents", json=payload)
 
-        assert first_res.status_code == 201
-        assert second_res.status_code == 200
-        assert first_res.json()["incident"]["id"] == second_res.json()["incident"]["id"]
-    finally:
-        client.close()
-        tmp.cleanup()
+    assert first_res.status_code == 201
+    assert second_res.status_code == 200
+    assert first_res.json()["incident"]["id"] == second_res.json()["incident"]["id"]
 
 
-def test_signal_after_closed_incident_is_rejected():
-    client, tmp = make_client()
-    try:
-        create_res = client.post(
-            "/api/v1/incidents",
-            json={
-                "client_name": "DemoOperator",
-                "site_id": "SITE-5001",
-                "province": "North Zone",
-                "scada_status": "OUTAGE_CONFIRMED",
-            },
-        )
-        incident_id = create_res.json()["incident"]["id"]
-        client.post(f"/api/v1/incidents/{incident_id}/restore", json={"restored_by": "SCADA_SENSOR"})
+def test_duplicate_source_signal_id_returns_existing_signal(client):
+    create_res = create_incident(client, site_id="SITE-4501")
+    incident_id = create_res.json()["incident"]["id"]
+    payload = {
+        "channel": "FIELD_APP",
+        "raw_text": "Patrol underway. Fault not located yet.",
+        "source_signal_id": "SRC-SIGNAL-4501",
+    }
 
-        signal_res = client.post(
-            f"/api/v1/incidents/{incident_id}/signals/field",
-            json={"channel": "FIELD_APP", "raw_text": "Patrol underway."},
-        )
+    first_res = client.post(f"/api/v1/incidents/{incident_id}/signals/field", json=payload)
+    second_res = client.post(f"/api/v1/incidents/{incident_id}/signals/field", json=payload)
 
-        assert signal_res.status_code == 409
-        assert signal_res.json()["error"]["code"] == "state_conflict"
-    finally:
-        client.close()
-        tmp.cleanup()
+    assert first_res.status_code == 200
+    assert second_res.status_code == 200
+    assert first_res.json()["signals"][0]["id"] == second_res.json()["signals"][0]["id"]
 
 
-def test_restoration_field_signal_is_persisted_in_audit_trail():
-    client, tmp = make_client()
-    try:
-        create_res = client.post(
-            "/api/v1/incidents",
-            json={
-                "client_name": "DemoOperator",
-                "site_id": "SITE-6001",
-                "province": "North Zone",
-                "scada_status": "OUTAGE_CONFIRMED",
-            },
-        )
-        incident_id = create_res.json()["incident"]["id"]
+def test_signal_after_closed_incident_is_rejected(client):
+    create_res = create_incident(client, site_id="SITE-5001")
+    incident_id = create_res.json()["incident"]["id"]
+    client.post(f"/api/v1/incidents/{incident_id}/restore", json={"restored_by": "SCADA_SENSOR"})
 
-        signal_res = client.post(
-            f"/api/v1/incidents/{incident_id}/signals/field",
-            json={
-                "channel": "FIELD_APP",
-                "raw_text": "Power restored and load normalized",
-                "source_signal_id": "SRC-SIGNAL-6001",
-            },
-        )
+    signal_res = client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        json={"channel": "FIELD_APP", "raw_text": "Patrol underway."},
+    )
 
-        payload = signal_res.json()
-        assert payload["incident"]["status"] == "CLOSED"
-        assert payload["signals"][0]["source_signal_id"] == "SRC-SIGNAL-6001"
-        assert payload["events"][-1]["event_type"] == "INCIDENT_CLOSED"
-    finally:
-        client.close()
-        tmp.cleanup()
+    assert signal_res.status_code == 409
+    assert signal_res.json()["error"]["code"] == "state_conflict"
 
 
-def test_unknown_incident_and_invalid_payload_use_standard_error_shape():
-    client, tmp = make_client()
-    try:
-        missing_res = client.get("/api/v1/incidents/INC-NOTFOUND")
-        invalid_res = client.post(
-            "/api/v1/incidents/INC-NOTFOUND/signals/field",
-            json={"channel": "FIELD_APP", "raw_text": ""},
-        )
+def test_restoration_field_signal_is_persisted_in_audit_trail(client):
+    create_res = create_incident(client, site_id="SITE-6001")
+    incident_id = create_res.json()["incident"]["id"]
 
-        assert missing_res.status_code == 404
-        assert missing_res.json()["error"]["code"] == "not_found"
-        assert invalid_res.status_code == 422
-        assert invalid_res.json()["error"]["code"] == "validation_error"
-    finally:
-        client.close()
-        tmp.cleanup()
+    signal_res = client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        json={
+            "channel": "FIELD_APP",
+            "raw_text": "Power restored and load normalized",
+            "source_signal_id": "SRC-SIGNAL-6001",
+        },
+    )
+
+    payload = signal_res.json()
+    assert payload["incident"]["status"] == "CLOSED"
+    assert payload["signals"][0]["source_signal_id"] == "SRC-SIGNAL-6001"
+    assert payload["events"][-1]["event_type"] == "INCIDENT_CLOSED"
 
 
-def test_unknown_text_and_multiple_keyword_conflict_resolution():
-    client, tmp = make_client()
-    try:
-        create_res = client.post(
-            "/api/v1/incidents",
-            json={
-                "client_name": "DemoOperator",
-                "site_id": "SITE-7001",
-                "province": "North Zone",
-                "scada_status": "OUTAGE_CONFIRMED",
-            },
-        )
-        incident_id = create_res.json()["incident"]["id"]
+def test_unknown_incident_and_invalid_payload_use_standard_error_shape(client):
+    missing_res = client.get("/api/v1/incidents/INC-NOTFOUND")
+    invalid_res = client.post(
+        "/api/v1/incidents/INC-NOTFOUND/signals/field",
+        json={"channel": "FIELD_APP", "raw_text": ""},
+    )
 
-        unknown_res = client.post(
-            f"/api/v1/incidents/{incident_id}/signals/field",
-            json={"channel": "FIELD_APP", "raw_text": "Crew is checking the area"},
-        )
-        assert unknown_res.json()["incident"]["reason_code"] == "UNCLASSIFIED_FIELD_SIGNAL"
-        assert unknown_res.json()["incident"]["current_eta_hours"] == 4.0
+    assert missing_res.status_code == 404
+    assert missing_res.json()["error"]["code"] == "not_found"
+    assert invalid_res.status_code == 422
+    assert invalid_res.json()["error"]["code"] == "validation_error"
 
-        conflict_res = client.post(
-            f"/api/v1/incidents/{incident_id}/signals/field",
-            json={"channel": "FIELD_APP", "raw_text": "Breaker trip and pole down near segment A"},
-        )
-        assert conflict_res.json()["incident"]["reason_code"] == "STRUCTURAL_DAMAGE"
-        assert conflict_res.json()["incident"]["current_eta_hours"] == 7.0
-    finally:
-        client.close()
-        tmp.cleanup()
+
+def test_unknown_text_and_multiple_keyword_conflict_resolution(client):
+    create_res = create_incident(client, site_id="SITE-7001")
+    incident_id = create_res.json()["incident"]["id"]
+
+    unknown_res = client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        json={"channel": "FIELD_APP", "raw_text": "Crew is checking the area"},
+    )
+    assert unknown_res.json()["incident"]["reason_code"] == "UNCLASSIFIED_FIELD_SIGNAL"
+    assert unknown_res.json()["incident"]["current_eta_hours"] == 4.0
+
+    conflict_res = client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        json={"channel": "FIELD_APP", "raw_text": "Breaker trip and pole down near segment A"},
+    )
+    assert conflict_res.json()["incident"]["reason_code"] == "STRUCTURAL_DAMAGE"
+    assert conflict_res.json()["incident"]["current_eta_hours"] == 7.0

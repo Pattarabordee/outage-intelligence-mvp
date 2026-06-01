@@ -25,6 +25,16 @@ Each row includes:
 - `rule_version`
 - `feature_snapshot`
 
+## Baseline model
+
+The first baseline is intentionally simple and reproducible:
+
+```bash
+python scripts/train_eta_baseline.py
+```
+
+It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. This gives the project a measurable floor before introducing richer models.
+
 ## Candidate features
 
 Structured:

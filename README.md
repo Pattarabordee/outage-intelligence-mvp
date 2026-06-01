@@ -113,6 +113,12 @@ Closed incidents can be exported for offline ML experiments:
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
 ```
 
+A simple reproducible ETA baseline is also included:
+
+```bash
+python scripts/train_eta_baseline.py
+```
+
 ## Public-safe design
 
 This repository is intentionally sanitized for public sharing and interview use.
@@ -157,6 +163,13 @@ Useful local endpoints:
 Optional runtime configuration:
 
 - `OUTAGE_DB_PATH`: SQLite database path for local runs
+
+Quality checks:
+
+```bash
+pytest -q
+pytest --cov=apps --cov-report=term-missing
+```
 
 ## Interview-friendly summary
 

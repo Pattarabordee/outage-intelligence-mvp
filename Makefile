@@ -1,4 +1,4 @@
-.PHONY: install run test demo seed export
+.PHONY: install run test coverage demo seed export baseline
 
 install:
 	python -m pip install -r requirements.txt
@@ -9,6 +9,9 @@ run:
 test:
 	pytest -q
 
+coverage:
+	pytest --cov=apps --cov-report=term-missing
+
 demo:
 	python -m apps.api.demo_scenario
 
@@ -17,3 +20,6 @@ seed:
 
 export:
 	python scripts/export_closed_dataset.py
+
+baseline:
+	python scripts/train_eta_baseline.py

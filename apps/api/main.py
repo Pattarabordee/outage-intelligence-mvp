@@ -8,8 +8,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import settings
+from .exceptions import StateConflictError
 from .schemas import FieldSignalIn, ImmediateResponse, IncidentCreate, IncidentOut, IncidentWithSignals, RestoreIn
-from .services import IncidentService, StateConflictError
+from .services import IncidentService
 
 
 def create_app(db_path: str | Path | None = None) -> FastAPI:
