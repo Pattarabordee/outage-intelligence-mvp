@@ -116,6 +116,7 @@ Generate the public-safe evidence artifact after the walkthrough:
 ```bash
 python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
+python scripts/run_pilot_scenario_matrix.py
 python scripts/generate_readiness_gate.py
 python scripts/generate_pilot_report.py --format markdown
 ```

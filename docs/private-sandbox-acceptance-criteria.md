@@ -24,6 +24,7 @@ Run the gate commands before using the repo for a pilot walkthrough:
 ```bash
 python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
+python scripts/run_pilot_scenario_matrix.py
 python scripts/generate_readiness_gate.py
 python scripts/generate_pilot_report.py --format markdown
 ```
@@ -35,6 +36,7 @@ Expected result:
 - `readiness.production_ready` is `false`
 - `sandbox_integration.outbound_http_sent` is `false`
 - `sandbox_integration.flow_coverage_rate` is `1.0`
+- `scenario_matrix.failed` is `0`
 
 ## Go Criteria
 
@@ -42,6 +44,7 @@ Use the prototype for private sandbox discussion when:
 
 - API behavior is repeatable from a clean checkout
 - incident creation, ETA revision, timeout fallback, restoration, and local retry behavior are covered
+- pilot scenario matrix passes all synthetic cases
 - generated reports exclude private delivery headers, raw field text, network targets, and operational topology
 - known production gaps are visible and not hidden as “ready”
 

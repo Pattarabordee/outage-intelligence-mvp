@@ -41,6 +41,8 @@ def test_readiness_gate_shape_and_markdown_are_public_safe():
     assert report["readiness"]["gate_decision"] == "ready_for_private_sandbox_discussion"
     assert len(report["passed_checks"]) == len(report["checks"])
     assert report["public_safe_scan"]["status"] == "passed"
+    assert report["scenario_matrix"]["scenario_count"] == 7
+    assert report["scenario_matrix"]["failed"] == 0
     assert report["sandbox_integration"]["outbound_http_sent"] is False
     assert report["sandbox_integration"]["flow_coverage_rate"] == 1.0
     assert "Private Sandbox Readiness Gate" in markdown
@@ -75,6 +77,7 @@ def test_readiness_gate_cli_outputs_public_safe_json():
     assert payload["readiness"]["sandbox_pilot_ready"] is True
     assert payload["readiness"]["production_ready"] is False
     assert payload["public_safe_scan"]["status"] == "passed"
+    assert payload["scenario_matrix"]["failed"] == 0
     assert payload["sandbox_integration"]["flow_coverage_rate"] == 1.0
     _assert_public_safe_output(result.stdout)
 

@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 from apps.api.services import IncidentService
 from scripts.public_safe_scan import scan_public_safe
 from scripts.run_partner_sandbox_flow import run_partner_sandbox_flow
+from scripts.run_pilot_scenario_matrix import run_pilot_scenario_matrix
 
 
 def _check(name: str, passed: bool, evidence: str) -> dict[str, Any]:
@@ -30,6 +31,7 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
         sandbox_summary = run_partner_sandbox_flow(service)
 
     scan = scan_public_safe(root=root)
+    scenario_matrix = run_pilot_scenario_matrix()
     integration = sandbox_summary["sandbox_integration_evidence"]
     idempotency = sandbox_summary["idempotency_result"]
     retry = sandbox_summary["webhook_retry_result"]
@@ -77,6 +79,11 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
             sandbox_summary["report_ready"] is True,
             "closed-loop data and outbox records are available for report generation",
         ),
+        _check(
+            "scenario_matrix",
+            scenario_matrix["failed"] == 0 and scenario_matrix["scenario_count"] >= 7,
+            f"{scenario_matrix['passed']}/{scenario_matrix['scenario_count']} scenarios passed",
+        ),
     ]
     sandbox_ready = all(check["status"] == "passed" for check in checks)
 
@@ -106,6 +113,13 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
             "allowed_references": scan["allowed_references"],
             "issues": len(scan["issues"]),
         },
+        "scenario_matrix": {
+            "scenario_count": scenario_matrix["scenario_count"],
+            "passed": scenario_matrix["passed"],
+            "failed": scenario_matrix["failed"],
+            "public_safe_status": scenario_matrix["public_safe_checks"]["status"],
+            "coverage_by_capability": scenario_matrix["coverage_by_capability"],
+        },
         "sandbox_integration": {
             "mode": integration["mode"],
             "outbound_http_sent": integration["outbound_http_sent"],
@@ -123,6 +137,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     )
     gaps = "\n".join(f"- {gap}" for gap in report["known_gaps"])
     integration = report["sandbox_integration"]
+    matrix = report["scenario_matrix"]
     scan = report["public_safe_scan"]
     return f"""# Private Sandbox Readiness Gate
 
@@ -145,6 +160,13 @@ Data boundary: `{report['data_boundary']}`
 - Scanned files: `{scan['scanned_files']}`
 - Allowed references: `{scan['allowed_references']}`
 - Issues: `{scan['issues']}`
+
+## Scenario Matrix
+
+- Scenario count: `{matrix['scenario_count']}`
+- Passed: `{matrix['passed']}`
+- Failed: `{matrix['failed']}`
+- Public-safe status: `{matrix['public_safe_status']}`
 
 ## Sandbox Integration
 

@@ -17,6 +17,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Private pilot evidence report and success metric definitions
 - Repeatable partner sandbox integration flow with idempotency, retry, timeout, and restoration proof
 - Private sandbox readiness gate with public-safe scan and go/no-go checks
+- Pilot scenario matrix for repeatable benchmark coverage across core private pilot risks
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -38,8 +39,9 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 1. Keep the current repo as a reference implementation and product demo.
 2. Use the executive and operator demo surfaces to align the private pilot workflow.
 3. Run the partner sandbox integration flow to prove retry-safe behavior locally.
-4. Run the readiness gate and review acceptance criteria before any private sandbox discussion.
-5. Generate the private pilot evidence report and agree on success metrics.
-6. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
-7. Run side-by-side evaluation against historical synthetic or de-identified incidents.
-8. Promote only explainable, measured policy changes into operational workflows.
+4. Run the pilot scenario matrix to prove repeatable coverage across outage, retry, timeout, restore, and scope-control cases.
+5. Run the readiness gate and review acceptance criteria before any private sandbox discussion.
+6. Generate the private pilot evidence report and agree on success metrics.
+7. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
+8. Run side-by-side evaluation against historical synthetic or de-identified incidents.
+9. Promote only explainable, measured policy changes into operational workflows.

@@ -59,6 +59,8 @@ def test_private_pilot_report_shape_is_public_safe(client):
     assert "readiness_gate" in report
     assert report["readiness_gate"]["readiness"]["sandbox_pilot_ready"] is True
     assert report["readiness_gate"]["readiness"]["production_ready"] is False
+    assert "scenario_matrix_evidence" in report
+    assert report["scenario_matrix_evidence"]["failed"] == 0
     assert report["production_gaps"]
     for term in SENSITIVE_REPORT_TERMS:
         assert term not in report_text
@@ -86,6 +88,7 @@ def test_private_pilot_markdown_report_is_actionable_and_public_safe(client):
     assert "# Private Pilot Evidence Report" in markdown
     assert "Sandbox Integration Evidence" in markdown
     assert "Readiness Gate" in markdown
+    assert "Scenario Matrix Evidence" in markdown
     assert "Pilot Success Metrics" in markdown
     assert "Production Gaps" in markdown
     for term in SENSITIVE_REPORT_TERMS:

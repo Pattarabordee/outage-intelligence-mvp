@@ -87,6 +87,7 @@ def build_pilot_report(
         },
         "sandbox_integration_evidence": sandbox_evidence,
         "readiness_gate": readiness_gate,
+        "scenario_matrix_evidence": readiness_gate["scenario_matrix"],
         "pilot_success_metrics": {
             "eta_mae_hours": product_metrics["eta_mae_hours"],
             "underestimation_rate": product_metrics["underestimation_rate"],
@@ -120,6 +121,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     evidence = report["workflow_evidence"]
     sandbox_evidence = report["sandbox_integration_evidence"]
     readiness_gate = report["readiness_gate"]
+    scenario_matrix = report["scenario_matrix_evidence"]
     flow_status = sandbox_evidence["flow_status"]
     retry_behavior = sandbox_evidence["retry_behavior"]
     gate_checks = "\n".join(
@@ -166,6 +168,13 @@ Flow coverage rate: `{sandbox_evidence['flow_coverage_rate']}`
 - Gate decision: `{readiness_gate['readiness']['gate_decision']}`
 
 {gate_checks}
+
+## Scenario Matrix Evidence
+
+- Scenario count: `{scenario_matrix['scenario_count']}`
+- Passed: `{scenario_matrix['passed']}`
+- Failed: `{scenario_matrix['failed']}`
+- Public-safe status: `{scenario_matrix['public_safe_status']}`
 
 ## Pilot Success Metrics
 

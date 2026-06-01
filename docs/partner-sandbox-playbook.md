@@ -59,6 +59,7 @@ Generate the pilot report after a seed run or a sandbox flow written to a named 
 
 ```bash
 python scripts/public_safe_scan.py
+python scripts/run_pilot_scenario_matrix.py
 python scripts/generate_readiness_gate.py
 python scripts/generate_pilot_report.py
 python scripts/generate_pilot_report.py --format markdown

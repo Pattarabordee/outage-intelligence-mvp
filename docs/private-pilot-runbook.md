@@ -65,7 +65,18 @@ Use the JSON output to discuss:
 
 For the full walkthrough, see [partner-sandbox-playbook.md](partner-sandbox-playbook.md).
 
-## 5. Readiness Gate
+## 5. Pilot Scenario Matrix
+
+Run the scenario benchmark:
+
+```bash
+python scripts/run_pilot_scenario_matrix.py
+python scripts/run_pilot_scenario_matrix.py --format markdown
+```
+
+Use [pilot-scenario-matrix.md](pilot-scenario-matrix.md) to review short outage, prolonged outage, timeout, duplicate, retry exhausted, restore idempotency, and partner scope cases.
+
+## 6. Readiness Gate
 
 Run the private sandbox readiness gate:
 
@@ -76,7 +87,7 @@ python scripts/generate_readiness_gate.py
 
 Use [private-sandbox-acceptance-criteria.md](private-sandbox-acceptance-criteria.md) as the go/no-go checklist. The expected discussion outcome is `ready_for_private_sandbox_discussion`, not production approval.
 
-## 6. Webhook Retry Discussion
+## 7. Webhook Retry Discussion
 
 The prototype records local outbox events instead of sending HTTP callbacks. This keeps the public repo safe while demonstrating retry and deduplication design.
 
@@ -88,7 +99,7 @@ Discuss:
 - future receiver-side verification for a private sandbox
 - why no live network target is stored in the repository
 
-## 7. Evaluation And ML-Readiness Discussion
+## 8. Evaluation And ML-Readiness Discussion
 
 Generate a pilot evidence report:
 
@@ -108,8 +119,9 @@ Use the report to connect product behavior to measurable pilot outcomes:
 - partner action distribution
 - sandbox integration evidence
 - readiness gate decision
+- scenario matrix evidence
 
-## 8. Production Gaps Before Live Use
+## 9. Production Gaps Before Live Use
 
 The prototype is ready for pilot discussion, not live production use.
 

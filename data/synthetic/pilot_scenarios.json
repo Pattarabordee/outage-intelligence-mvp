@@ -1,0 +1,243 @@
+{
+  "version": "scenario-matrix-v1",
+  "data_boundary": "synthetic-public-safe",
+  "scenarios": [
+    {
+      "id": "short-outage-restored",
+      "name": "Short outage closes from restoration evidence",
+      "capabilities": ["short_outage", "restoration_closure", "closed_loop_ground_truth"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-short",
+        "display_name": "Matrix Short Outage Partner",
+        "partner_class": "data_center",
+        "allowed_site_prefixes": ["MATRIX-SHORT-"],
+        "webhook_mode": "mock_dispatch",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Short Outage Partner",
+        "site_id": "MATRIX-SHORT-001",
+        "province": "Central Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-MATRIX-SHORT-001"
+      },
+      "steps": [
+        {
+          "type": "field_signal",
+          "channel": "FIELD_APP",
+          "raw_text": "Power restored after feeder reclose confirmation",
+          "source_signal_id": "SIG-MATRIX-SHORT-001"
+        }
+      ],
+      "expected": {
+        "final_status": "CLOSED",
+        "reason_code": "RESTORED",
+        "closed_dataset_min_rows": 1,
+        "webhook_event_types": ["incident.created", "incident.restored"]
+      }
+    },
+    {
+      "id": "prolonged-outage-eta-revised",
+      "name": "Prolonged outage revises ETA and partner action",
+      "capabilities": ["prolonged_outage", "eta_revision", "partner_action"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-prolonged",
+        "display_name": "Matrix Prolonged Outage Partner",
+        "partner_class": "telecom",
+        "allowed_site_prefixes": ["MATRIX-PROLONGED-"],
+        "webhook_mode": "mock_dispatch",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Prolonged Outage Partner",
+        "site_id": "MATRIX-PROLONGED-001",
+        "province": "North Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-MATRIX-PROLONGED-001"
+      },
+      "steps": [
+        {
+          "type": "field_signal",
+          "channel": "FIELD_APP",
+          "raw_text": "Field crew reports pole down and conductor snapped near segment A",
+          "source_signal_id": "SIG-MATRIX-PROLONGED-001"
+        }
+      ],
+      "expected": {
+        "final_status": "ETA_REVISED",
+        "reason_code": "STRUCTURAL_DAMAGE",
+        "eta_hours": 7.0,
+        "recommendation": "DISPATCH_BACKUP_IF_BATTERY_WINDOW_AT_RISK",
+        "webhook_event_types": ["incident.created", "eta.revised"]
+      }
+    },
+    {
+      "id": "timeout-failsafe-applied",
+      "name": "Ambiguous outage triggers timeout failsafe",
+      "capabilities": ["timeout_failsafe", "sla_behavior", "auditability"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-timeout",
+        "display_name": "Matrix Timeout Partner",
+        "partner_class": "industrial_estate",
+        "allowed_site_prefixes": ["MATRIX-TIMEOUT-"],
+        "webhook_mode": "outbox_only",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Timeout Partner",
+        "site_id": "MATRIX-TIMEOUT-001",
+        "province": "East Zone",
+        "scada_status": "UNKNOWN",
+        "source_event_id": "SRC-MATRIX-TIMEOUT-001"
+      },
+      "steps": [
+        {
+          "type": "timeout_check",
+          "minutes_ago": 121
+        }
+      ],
+      "expected": {
+        "final_status": "ETA_REVISED",
+        "reason_code": "TIMEOUT_FAILSAFE",
+        "timeout_applied": true,
+        "eta_hours": 8.0,
+        "webhook_event_types": ["incident.created", "timeout.applied"]
+      }
+    },
+    {
+      "id": "duplicate-event-and-signal",
+      "name": "Duplicate event and field signal are idempotent",
+      "capabilities": ["duplicate_event", "duplicate_signal", "idempotency"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-duplicate",
+        "display_name": "Matrix Duplicate Partner",
+        "partner_class": "critical_infrastructure",
+        "allowed_site_prefixes": ["MATRIX-DUP-"],
+        "webhook_mode": "mock_dispatch",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Duplicate Partner",
+        "site_id": "MATRIX-DUP-001",
+        "province": "South Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-MATRIX-DUP-001"
+      },
+      "steps": [
+        {
+          "type": "duplicate_incident"
+        },
+        {
+          "type": "field_signal",
+          "channel": "FIELD_APP",
+          "raw_text": "Patrol underway and searching fault near synthetic feeder segment",
+          "source_signal_id": "SIG-MATRIX-DUP-001"
+        },
+        {
+          "type": "duplicate_signal"
+        }
+      ],
+      "expected": {
+        "duplicate_incident_same": true,
+        "duplicate_signal_ignored": true,
+        "webhook_event_types": ["incident.created", "duplicate.ignored", "eta.revised"]
+      }
+    },
+    {
+      "id": "webhook-retry-exhausted",
+      "name": "Webhook retry can reach exhausted state locally",
+      "capabilities": ["webhook_retry", "retry_exhausted", "auditability"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-retry",
+        "display_name": "Matrix Retry Partner",
+        "partner_class": "hospital_network",
+        "allowed_site_prefixes": ["MATRIX-RETRY-"],
+        "webhook_mode": "mock_dispatch",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Retry Partner",
+        "site_id": "MATRIX-RETRY-001",
+        "province": "West Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-MATRIX-RETRY-001"
+      },
+      "steps": [
+        {
+          "type": "field_signal",
+          "channel": "FIELD_APP",
+          "raw_text": "Tree on line reported by field crew near synthetic segment",
+          "source_signal_id": "SIG-MATRIX-RETRY-001"
+        },
+        {
+          "type": "webhook_attempts",
+          "event_type": "eta.revised",
+          "outcomes": ["failed", "failed", "failed"]
+        }
+      ],
+      "expected": {
+        "webhook_event_type": "eta.revised",
+        "webhook_final_status": "exhausted",
+        "webhook_attempt_count": 3
+      }
+    },
+    {
+      "id": "restore-endpoint-idempotent",
+      "name": "Restore endpoint is idempotent",
+      "capabilities": ["restoration_closure", "restore_idempotency", "closed_loop_ground_truth"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-restore",
+        "display_name": "Matrix Restore Partner",
+        "partner_class": "enterprise_sandbox",
+        "allowed_site_prefixes": ["MATRIX-RESTORE-"],
+        "webhook_mode": "outbox_only",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Restore Partner",
+        "site_id": "MATRIX-RESTORE-001",
+        "province": "Central Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-MATRIX-RESTORE-001"
+      },
+      "steps": [
+        {
+          "type": "restore"
+        },
+        {
+          "type": "restore_again"
+        }
+      ],
+      "expected": {
+        "final_status": "CLOSED",
+        "restore_idempotent": true,
+        "closed_dataset_min_rows": 1,
+        "webhook_event_types": ["incident.created", "incident.restored"]
+      }
+    },
+    {
+      "id": "partner-scope-denied",
+      "name": "Partner cannot create incident outside sandbox scope",
+      "capabilities": ["partner_scope", "access_boundary", "tenant_safety"],
+      "partner_profile": {
+        "partner_id": "partner-matrix-scope",
+        "display_name": "Matrix Scope Partner",
+        "partner_class": "telecom",
+        "allowed_site_prefixes": ["MATRIX-SCOPE-"],
+        "webhook_mode": "outbox_only",
+        "notification_contact_label": "Sandbox NOC queue"
+      },
+      "incident": {
+        "client_name": "Matrix Scope Partner",
+        "site_id": "OUTSIDE-SCOPE-001",
+        "province": "Central Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-MATRIX-SCOPE-001"
+      },
+      "steps": [],
+      "expected": {
+        "create_denied": true
+      }
+    }
+  ]
+}
