@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-def create_incident(client, site_id: str = "SITE-1001", **overrides):
+def create_incident(client, site_id: str = "SITE-1001", headers: dict | None = None, **overrides):
     payload = {
         "client_name": "DemoEnterprisePartner",
         "site_id": site_id,
@@ -8,7 +8,7 @@ def create_incident(client, site_id: str = "SITE-1001", **overrides):
         "scada_status": "OUTAGE_CONFIRMED",
     }
     payload.update(overrides)
-    return client.post("/api/v1/incidents", json=payload)
+    return client.post("/api/v1/incidents", json=payload, headers=headers)
 
 
 def test_create_incident_and_revise_eta(client):
@@ -69,7 +69,88 @@ def test_health_endpoint_declares_public_safe_enterprise_service(client):
         "service": "enterprise-outage-intelligence",
         "version": "0.2.0",
         "data_boundary": "synthetic-public-safe",
+        "sandbox_auth": "disabled",
     }
+
+
+def test_ready_endpoint_reports_pilot_readiness_checks(client):
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert response.json()["checks"]["incident_store"] == "ok"
+
+
+def test_sandbox_auth_requires_valid_partner_key(auth_client, partner_a_headers):
+    missing_res = auth_client.post(
+        "/api/v1/incidents",
+        json={
+            "client_name": "DemoEnterprisePartner",
+            "site_id": "SITE-AUTH-001",
+            "province": "North Zone",
+            "scada_status": "OUTAGE_CONFIRMED",
+        },
+    )
+    invalid_res = auth_client.post(
+        "/api/v1/incidents",
+        headers={"X-Partner-Id": "partner-a", "X-API-Key": "wrong-key"},
+        json={
+            "client_name": "DemoEnterprisePartner",
+            "site_id": "SITE-AUTH-002",
+            "province": "North Zone",
+            "scada_status": "OUTAGE_CONFIRMED",
+        },
+    )
+    valid_res = create_incident(auth_client, site_id="SITE-AUTH-003", headers=partner_a_headers)
+
+    assert missing_res.status_code == 401
+    assert missing_res.json()["error"]["code"] == "unauthorized"
+    assert invalid_res.status_code == 401
+    assert invalid_res.json()["error"]["code"] == "unauthorized"
+    assert valid_res.status_code == 201
+    assert valid_res.json()["incident"]["partner_id"] == "partner-a"
+
+
+def test_partner_cannot_access_another_partner_incident(auth_client, partner_a_headers, partner_b_headers):
+    create_res = create_incident(auth_client, site_id="SITE-TENANT-001", headers=partner_a_headers)
+    incident_id = create_res.json()["incident"]["id"]
+
+    forbidden_res = auth_client.get(f"/api/v1/incidents/{incident_id}", headers=partner_b_headers)
+
+    assert forbidden_res.status_code == 403
+    assert forbidden_res.json()["error"]["code"] == "forbidden"
+
+
+def test_partner_id_must_match_authenticated_context(auth_client, partner_a_headers):
+    response = create_incident(
+        auth_client,
+        site_id="SITE-TENANT-002",
+        headers=partner_a_headers,
+        partner_id="partner-b",
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
+
+
+def test_source_event_id_is_idempotent_per_partner(auth_client, partner_a_headers, partner_b_headers):
+    payload = {
+        "client_name": "DemoEnterprisePartner",
+        "site_id": "SITE-TENANT-003",
+        "province": "North Zone",
+        "scada_status": "OUTAGE_CONFIRMED",
+        "source_event_id": "SRC-SHARED-001",
+    }
+
+    first_res = auth_client.post("/api/v1/incidents", json=payload, headers=partner_a_headers)
+    duplicate_res = auth_client.post("/api/v1/incidents", json=payload, headers=partner_a_headers)
+    other_partner_res = auth_client.post("/api/v1/incidents", json=payload, headers=partner_b_headers)
+
+    assert first_res.status_code == 201
+    assert duplicate_res.status_code == 200
+    assert other_partner_res.status_code == 201
+    assert first_res.json()["incident"]["id"] == duplicate_res.json()["incident"]["id"]
+    assert first_res.json()["incident"]["id"] != other_partner_res.json()["incident"]["id"]
 
 
 def test_restore_closes_ticket_and_exports_dataset(client):
@@ -89,6 +170,14 @@ def test_restore_closes_ticket_and_exports_dataset(client):
     assert dataset[0]["incident_id"] == incident_id
     assert "eta_error_hours" in dataset[0]
     assert dataset[0]["rule_version"] == "rules-v1"
+    assert dataset[0]["feature_snapshot"]["partner_id"] == "demo-enterprise-partner"
+
+    second_restore_res = client.post(
+        f"/api/v1/incidents/{incident_id}/restore",
+        json={"restored_by": "SCADA_SENSOR"},
+    )
+    assert second_restore_res.status_code == 200
+    assert second_restore_res.json()["id"] == incident_id
 
 
 def test_duplicate_source_event_id_returns_existing_incident(client):

@@ -5,6 +5,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 ## Prototype-Ready
 
 - Partner-facing API shape with versioned `/api/v1` routes
+- Optional sandbox API-key authentication and partner boundary
 - Idempotency for incident and field-signal ingestion
 - Standardized error response shape
 - Audit trail for ETA revisions, timeout fallback, and restoration closure
@@ -14,8 +15,8 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 
 ## Production Gaps To Close Before Live Use
 
-- Authentication and partner authorization
-- Tenant isolation and partner-specific access control
+- Production-grade authentication and partner authorization
+- Strong tenant isolation beyond the local SQLite prototype
 - Rate limiting and replay protection for write endpoints
 - Real webhook signature verification
 - Database migration strategy beyond local SQLite

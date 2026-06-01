@@ -22,6 +22,7 @@ Train a reproducible baseline from synthetic closed incidents:
 
 ```bash
 python scripts/train_eta_baseline.py
+python scripts/evaluate_product_metrics.py
 ```
 
 The current baseline predicts restoration duration from the mean duration by `scada_status`. It reports:
@@ -36,6 +37,7 @@ The current baseline predicts restoration duration from the mean duration by `sc
 - Timeout fallback rate
 - Underestimation rate for prolonged outages
 - Decision calibration by confidence band
-- Percentage of incidents with complete audit trail and restoration ground truth
+- Audit completeness and restoration ground-truth coverage
+- Prolonged-outage baseline recall
 
 These metrics turn the outage workflow into a data product rather than only a prototype API.

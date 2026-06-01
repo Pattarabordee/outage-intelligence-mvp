@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class IncidentCreate(BaseModel):
+    partner_id: str | None = Field(default=None, examples=["partner-telecom-sandbox"])
     client_name: str = Field(..., examples=["DemoEnterprisePartner"])
     site_id: str = Field(..., examples=["SITE-1001"])
     province: str = Field(..., examples=["North Zone"])
@@ -28,6 +29,7 @@ class RestoreIn(BaseModel):
 
 class IncidentOut(BaseModel):
     id: str
+    partner_id: str
     client_name: str
     site_id: str
     province: str

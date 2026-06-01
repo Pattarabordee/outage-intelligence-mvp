@@ -22,6 +22,7 @@ This guide describes how an enterprise partner system could integrate with the o
 ```json
 {
   "client_name": "DemoEnterprisePartner",
+  "partner_id": "partner-telecom-sandbox",
   "site_id": "SITE-1001",
   "province": "North Zone",
   "scada_status": "OUTAGE_CONFIRMED",
@@ -34,6 +35,18 @@ This guide describes how an enterprise partner system could integrate with the o
 - `source_event_id` or `idempotency_key` prevents duplicate incident creation.
 - `source_signal_id` prevents duplicate signal ingestion.
 - Timeout checks and restore operations are safe to retry.
+- `source_event_id` is unique within a partner boundary.
+
+## Sandbox Authentication
+
+For local public demos, sandbox auth is disabled unless `OUTAGE_SANDBOX_API_KEYS` is configured.
+
+When enabled, clients must send:
+
+- `X-Partner-Id`
+- `X-API-Key`
+
+The request `partner_id`, when present, must match `X-Partner-Id`.
 
 ## Data Minimization
 

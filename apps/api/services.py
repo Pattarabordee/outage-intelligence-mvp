@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .database import fetch_all, fetch_one, get_connection, init_db
 from .exceptions import StateConflictError
+from .observability import log_event
 from .rules import (
     POLICY_VERSION,
     TIMEOUT_MINUTES,
@@ -43,6 +44,7 @@ def _loads_json(value: str | None, fallback):
 def row_to_incident(row: sqlite3.Row) -> JSONDict:
     return {
         "id": row["id"],
+        "partner_id": row["partner_id"],
         "client_name": row["client_name"],
         "site_id": row["site_id"],
         "province": row["province"],
@@ -114,6 +116,7 @@ class IncidentService:
 
     def create_incident(
         self,
+        partner_id: str,
         client_name: str,
         site_id: str,
         province: str,
@@ -123,8 +126,9 @@ class IncidentService:
     ) -> tuple[JSONDict, bool]:
         idempotency_value = source_event_id or idempotency_key
         if idempotency_value:
-            existing = self.get_incident_by_source_event_id(idempotency_value)
+            existing = self.get_incident_by_source_event_id(partner_id, idempotency_value)
             if existing:
+                log_event("duplicate_incident_ignored", partner_id=partner_id, source_event_id=idempotency_value)
                 return existing, False
 
         now = utcnow()
@@ -140,14 +144,15 @@ class IncidentService:
             conn.execute(
                 """
                 INSERT INTO incidents (
-                    id, client_name, site_id, province, scada_status, status, created_at,
+                    id, partner_id, client_name, site_id, province, scada_status, status, created_at,
                     updated_at, initial_eta_hours, current_eta_hours, severity, reason_code,
                     hold_until, restored_at, restored_by, dispatch_decision, timeout_applied,
                     last_signal_at, source_event_id, metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     incident_id,
+                    partner_id,
                     client_name,
                     site_id,
                     province,
@@ -179,6 +184,7 @@ class IncidentService:
                 reason_code="SCADA_INITIAL_ASSESSMENT",
                 severity="baseline",
                 feature_snapshot={
+                    "partner_id": partner_id,
                     "scada_status": scada_status,
                     "site_id": site_id,
                     "province": province,
@@ -187,11 +193,16 @@ class IncidentService:
                 created_at=now,
             )
             conn.commit()
+        log_event("incident_created", incident_id=incident_id, partner_id=partner_id, reason_code="SCADA_INITIAL_ASSESSMENT")
         return self.get_incident(incident_id), True
 
-    def get_incident_by_source_event_id(self, source_event_id: str) -> JSONDict | None:
+    def get_incident_by_source_event_id(self, partner_id: str, source_event_id: str) -> JSONDict | None:
         with self._conn() as conn:
-            row = fetch_one(conn, "SELECT * FROM incidents WHERE source_event_id = ?", (source_event_id,))
+            row = fetch_one(
+                conn,
+                "SELECT * FROM incidents WHERE partner_id = ? AND source_event_id = ?",
+                (partner_id, source_event_id),
+            )
             return row_to_incident(row) if row else None
 
     def get_incident(self, incident_id: str) -> JSONDict:
@@ -201,9 +212,12 @@ class IncidentService:
                 raise KeyError(f"Incident not found: {incident_id}")
             return row_to_incident(row)
 
-    def list_incidents(self) -> list[JSONDict]:
+    def list_incidents(self, partner_id: str | None = None) -> list[JSONDict]:
         with self._conn() as conn:
-            rows = fetch_all(conn, "SELECT * FROM incidents ORDER BY created_at DESC")
+            if partner_id:
+                rows = fetch_all(conn, "SELECT * FROM incidents WHERE partner_id = ? ORDER BY created_at DESC", (partner_id,))
+            else:
+                rows = fetch_all(conn, "SELECT * FROM incidents ORDER BY created_at DESC")
             return [row_to_incident(r) for r in rows]
 
     def list_signals(self, incident_id: str) -> list[JSONDict]:
@@ -231,6 +245,9 @@ class IncidentService:
         if source_signal_id:
             existing = self.get_signal_by_source_signal_id(source_signal_id)
             if existing:
+                if existing["incident_id"] != incident_id:
+                    raise StateConflictError("source_signal_id already belongs to another incident")
+                log_event("duplicate_signal_ignored", incident_id=existing["incident_id"], source_signal_id=source_signal_id)
                 return self.get_incident(existing["incident_id"]), existing
 
         rule = evaluate_text_signal(raw_text)
@@ -258,6 +275,7 @@ class IncidentService:
                     source="FIELD_SIGNAL",
                     observed_at=observed,
                 )
+                log_event("incident_closed", incident_id=incident_id, partner_id=incident["partner_id"], source="FIELD_SIGNAL")
             else:
                 hold_until = now + timedelta(hours=new_eta)
                 recommendation = recommendation_from_eta(new_eta)
@@ -296,6 +314,13 @@ class IncidentService:
                     },
                     observed_at=observed,
                     created_at=now,
+                )
+                log_event(
+                    "eta_revised",
+                    incident_id=incident_id,
+                    partner_id=incident["partner_id"],
+                    reason_code=rule.reason_code,
+                    eta_hours=new_eta,
                 )
             conn.commit()
         return self.get_incident(incident_id), signal
@@ -355,6 +380,7 @@ class IncidentService:
                 created_at=now,
             )
             conn.commit()
+        log_event("timeout_applied", incident_id=incident_id, partner_id=incident["partner_id"], eta_hours=new_eta)
         return self.get_incident(incident_id)
 
     def force_backdate_incident(self, incident_id: str, minutes_ago: int) -> JSONDict:
@@ -384,6 +410,7 @@ class IncidentService:
                 observed_at=now,
             )
             conn.commit()
+        log_event("incident_closed", incident_id=incident_id, partner_id=incident["partner_id"], source=restored_by)
         return self.get_incident(incident_id)
 
     def decision_for_incident(self, incident: JSONDict) -> JSONDict:
@@ -421,9 +448,11 @@ class IncidentService:
                     "eta_error_hours": round(eta_error, 3),
                     "rule_version": incident["metadata"].get("policy_version", POLICY_VERSION),
                     "feature_snapshot": {
+                        "partner_id": incident["partner_id"],
                         "scada_status": incident["scada_status"],
                         "province": incident["province"],
                         "source_event_id_present": bool(incident["source_event_id"]),
+                        "timeout_applied": incident["timeout_applied"],
                     },
                 }
             )

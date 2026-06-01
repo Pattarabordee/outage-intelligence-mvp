@@ -13,6 +13,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Public-safe enterprise product prototype
 - Synthetic data, synthetic identifiers, and no real partner payloads
 - Tested workflows for incident creation, ETA revision, timeout fallback, restoration closure, idempotency, and audit trail
+- Optional sandbox API-key boundary for partner pilot conversations
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -75,6 +76,7 @@ Core repository areas:
 ```json
 {
   "client_name": "DemoEnterprisePartner",
+  "partner_id": "partner-telecom-sandbox",
   "site_id": "SITE-1001",
   "province": "North Zone",
   "scada_status": "OUTAGE_CONFIRMED",
@@ -90,6 +92,8 @@ The response includes:
 - confidence band
 - policy explanation
 - SLA-style timeout behavior
+
+Sandbox partner auth can be enabled by configuring `OUTAGE_SANDBOX_API_KEYS` and sending `X-Partner-Id` plus `X-API-Key`. If no keys are configured, auth stays disabled so the public prototype remains easy to run locally.
 
 ### 2. Revise ETA from field evidence
 
@@ -114,6 +118,7 @@ The response includes:
 ```bash
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
 python scripts/train_eta_baseline.py
+python scripts/evaluate_product_metrics.py
 ```
 
 ## Public-Safe Product Prototype
@@ -130,13 +135,13 @@ More detail is available in [docs/security-and-governance.md](docs/security-and-
 
 ## Product Roadmap
 
-- Enterprise API contract: stronger partner documentation, idempotency policy, standard errors, and audit history
+- Enterprise API contract: partner documentation, idempotency policy, standard errors, auth boundary, and audit history
 - Operational decision layer: clearer policy explanations, confidence bands, and partner action semantics
 - Partner readiness: webhook/API integration guide, data-minimization boundary, and synthetic payload catalog
 - Executive demo: incident timeline that shows ETA sent, field revision, timeout, restoration, and dataset export
 - ML data product: ETA accuracy monitoring, prolonged-outage risk baseline, and partner-level performance reporting
 
-See [docs/partner-integration.md](docs/partner-integration.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
+See [docs/partner-integration.md](docs/partner-integration.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
 
 ## Quick Start
 
@@ -153,16 +158,19 @@ Useful local endpoints:
 - API docs: `http://127.0.0.1:8000/docs`
 - Executive demo view: `http://127.0.0.1:8000/demo/incidents`
 - Health check: `http://127.0.0.1:8000/health`
+- Readiness check: `http://127.0.0.1:8000/ready`
 
 Optional runtime configuration:
 
 - `OUTAGE_DB_PATH`: SQLite database path for local runs
+- `OUTAGE_SANDBOX_API_KEYS`: optional comma-separated sandbox keys, for example `partner-a:key-a,partner-b:key-b`
 
 Quality checks:
 
 ```bash
 pytest -q
 pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
+python scripts/evaluate_product_metrics.py
 ```
 
 ## Product Summary

@@ -22,6 +22,8 @@ This repository is public-safe by design and should be read as a reference produ
 
 - Make every ETA revision traceable through an audit event.
 - Preserve idempotency for partner retries and webhook-like delivery patterns.
+- Keep sandbox API keys in environment configuration, never in source code.
+- Treat `partner_id` as the tenant boundary for pilot conversations.
 - Keep high-impact decisions explainable through rule version, reason code, confidence band, and policy explanation.
 - Treat restoration closure as ground truth for analytics and model evaluation.
 - Document where public-safe examples differ from production concerns such as authentication, authorization, rate limits, and tenant isolation.

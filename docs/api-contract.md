@@ -11,6 +11,7 @@ Request:
 ```json
 {
   "client_name": "DemoEnterprisePartner",
+  "partner_id": "partner-telecom-sandbox",
   "site_id": "SITE-1001",
   "province": "North Zone",
   "scada_status": "OUTAGE_CONFIRMED",
@@ -24,6 +25,7 @@ Response:
 {
   "incident": {
     "id": "INC-EXAMPLE",
+    "partner_id": "partner-telecom-sandbox",
     "status": "HOLD_SENT",
     "current_eta_hours": 2.0,
     "reason_code": "SCADA_INITIAL_ASSESSMENT"
@@ -51,6 +53,8 @@ Notes:
 - New incidents return `201 Created` with a `Location` header.
 - Repeated `source_event_id` or `idempotency_key` returns the existing incident with `200 OK`.
 - The decision object is intended for NOC/SOC, enterprise account, or partner operations teams.
+- If sandbox keys are configured, requests must include `X-Partner-Id` and `X-API-Key`.
+- `partner_id` is the tenant boundary. If provided in the body, it must match the authenticated `X-Partner-Id`.
 
 ## POST `/api/v1/incidents/{incident_id}/signals/field`
 
@@ -107,6 +111,10 @@ All API errors use the same shape:
 
 Common error codes:
 
+- `unauthorized`
+- `forbidden`
+- `invalid_signature`
+- `duplicate_event`
 - `not_found`
 - `state_conflict`
 - `validation_error`

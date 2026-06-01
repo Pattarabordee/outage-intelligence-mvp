@@ -12,6 +12,7 @@ DEFAULT_DB_PATH = settings.db_path
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS incidents (
     id TEXT PRIMARY KEY,
+    partner_id TEXT NOT NULL DEFAULT 'demo-enterprise-partner',
     client_name TEXT NOT NULL,
     site_id TEXT NOT NULL,
     province TEXT NOT NULL,
@@ -80,13 +81,15 @@ def init_db(db_path: str | Path | None = None) -> None:
     try:
         with conn:
             conn.executescript(SCHEMA_SQL)
+            _ensure_column(conn, "incidents", "partner_id", "TEXT NOT NULL DEFAULT 'demo-enterprise-partner'")
             _ensure_column(conn, "incidents", "source_event_id", "TEXT")
             _ensure_column(conn, "signals", "observed_at", "TEXT")
             _ensure_column(conn, "signals", "source_signal_id", "TEXT")
+            conn.execute("DROP INDEX IF EXISTS idx_incidents_source_event_id")
             conn.execute(
                 """
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_source_event_id
-                ON incidents(source_event_id)
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_partner_source_event_id
+                ON incidents(partner_id, source_event_id)
                 WHERE source_event_id IS NOT NULL
                 """
             )

@@ -33,9 +33,10 @@ The first baseline is intentionally simple and reproducible:
 
 ```bash
 python scripts/train_eta_baseline.py
+python scripts/evaluate_product_metrics.py
 ```
 
-It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. This provides a measurable floor before introducing richer supervised-learning models.
+It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. Product metrics additionally track timeout fallback rate, audit completeness, ground-truth coverage, and a simple prolonged-outage baseline. This provides a measurable floor before introducing richer supervised-learning models.
 
 ## Candidate Features
 

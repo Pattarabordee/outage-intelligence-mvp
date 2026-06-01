@@ -15,5 +15,6 @@ A production dashboard could be split into a separate frontend and add:
 - partner NOC/SOC timeline view
 - SLA and timeout indicators
 - confidence and policy-explanation panels
+- partner boundary and sandbox auth status
 - audit event drill-down
 - ETA accuracy and prolonged-outage performance views

@@ -13,6 +13,7 @@ from apps.api.services import IncidentService
 def main() -> None:
     service = IncidentService()
     incident, _created = service.create_incident(
+        partner_id="demo-enterprise-partner",
         client_name="DemoEnterprisePartner",
         site_id="SITE-DEMO-001",
         province="Central Zone",

@@ -1,4 +1,4 @@
-.PHONY: install run test coverage demo seed export baseline
+.PHONY: install run test coverage demo seed export baseline evaluate
 
 install:
 	python -m pip install -r requirements.txt
@@ -23,3 +23,6 @@ export:
 
 baseline:
 	python scripts/train_eta_baseline.py
+
+evaluate:
+	python scripts/evaluate_product_metrics.py
