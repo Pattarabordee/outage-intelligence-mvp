@@ -53,6 +53,9 @@ def test_private_pilot_report_shape_is_public_safe(client):
     assert report["pilot_success_metrics"]["eta_mae_hours"] == 1.75
     assert "webhook_delivery_rate" in report["pilot_success_metrics"]
     assert "partner_action_distribution" in report["pilot_success_metrics"]
+    assert "sandbox_integration_evidence" in report
+    assert report["sandbox_integration_evidence"]["mode"] == "local-outbox-only"
+    assert report["sandbox_integration_evidence"]["outbound_http_sent"] is False
     assert report["production_gaps"]
     for term in SENSITIVE_REPORT_TERMS:
         assert term not in report_text
@@ -78,6 +81,7 @@ def test_private_pilot_markdown_report_is_actionable_and_public_safe(client):
     markdown = render_markdown(report)
 
     assert "# Private Pilot Evidence Report" in markdown
+    assert "Sandbox Integration Evidence" in markdown
     assert "Pilot Success Metrics" in markdown
     assert "Production Gaps" in markdown
     for term in SENSITIVE_REPORT_TERMS:

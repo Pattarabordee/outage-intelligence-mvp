@@ -46,7 +46,26 @@ Recommended sequence:
 6. Use `Pilot Report Snapshot` to connect the console to evaluation metrics.
 7. Use `Public-Safe Controls` to reinforce that no operationally sensitive details are rendered.
 
-## 4. Webhook Retry Discussion
+## 4. Partner Sandbox Integration Flow
+
+Run the repeatable local sandbox proof:
+
+```bash
+python scripts/run_partner_sandbox_flow.py
+```
+
+Use the JSON output to discuss:
+
+- duplicate event handling
+- duplicate field signal handling
+- local retry and delivery attempt behavior
+- restoration idempotency
+- timeout fallback coverage
+- whether the scenario is ready for pilot reporting
+
+For the full walkthrough, see [partner-sandbox-playbook.md](partner-sandbox-playbook.md).
+
+## 5. Webhook Retry Discussion
 
 The prototype records local outbox events instead of sending HTTP callbacks. This keeps the public repo safe while demonstrating retry and deduplication design.
 
@@ -58,7 +77,7 @@ Discuss:
 - future receiver-side verification for a private sandbox
 - why no live network target is stored in the repository
 
-## 5. Evaluation And ML-Readiness Discussion
+## 6. Evaluation And ML-Readiness Discussion
 
 Generate a pilot evidence report:
 
@@ -76,8 +95,9 @@ Use the report to connect product behavior to measurable pilot outcomes:
 - audit completeness
 - restoration ground-truth coverage
 - partner action distribution
+- sandbox integration evidence
 
-## 6. Production Gaps Before Live Use
+## 7. Production Gaps Before Live Use
 
 The prototype is ready for pilot discussion, not live production use.
 

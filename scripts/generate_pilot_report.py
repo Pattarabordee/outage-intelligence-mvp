@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from apps.api.integration_evidence import build_sandbox_integration_evidence
 from apps.api.reporting import evaluate_rows, rate
 from apps.api.services import IncidentService
 
@@ -51,6 +52,7 @@ def build_pilot_report(
     delivered_count = len([delivery for delivery in deliveries if delivery["status"] == "delivered"])
     attempted_count = len([delivery for delivery in deliveries if delivery["attempt_count"] > 0])
     action_distribution = Counter(action["recommendation"] for action in operator_summary["partner_actions"])
+    sandbox_evidence = build_sandbox_integration_evidence(service)
 
     return {
         "report_type": "private-pilot-evidence-pack",
@@ -81,6 +83,7 @@ def build_pilot_report(
                 "status_counts": dict(Counter(delivery["status"] for delivery in deliveries)),
             },
         },
+        "sandbox_integration_evidence": sandbox_evidence,
         "pilot_success_metrics": {
             "eta_mae_hours": product_metrics["eta_mae_hours"],
             "underestimation_rate": product_metrics["underestimation_rate"],
@@ -112,8 +115,12 @@ def build_pilot_report(
 def render_markdown(report: dict[str, Any]) -> str:
     metrics = report["pilot_success_metrics"]
     evidence = report["workflow_evidence"]
+    sandbox_evidence = report["sandbox_integration_evidence"]
+    flow_status = sandbox_evidence["flow_status"]
+    retry_behavior = sandbox_evidence["retry_behavior"]
     gaps = "\n".join(f"- {gap}" for gap in report["production_gaps"])
     controls = "\n".join(f"- {control}" for control in report["public_safe_controls"])
+    flow_items = "\n".join(f"- {name}: `{covered}`" for name, covered in flow_status.items())
     return f"""# Private Pilot Evidence Report
 
 Data boundary: `{report['data_boundary']}`
@@ -130,6 +137,19 @@ Data boundary: `{report['data_boundary']}`
 - Executive route: `{evidence['executive_demo']['route']}` with {evidence['executive_demo']['journey_events']} journey events
 - Operator route: `{evidence['operator_console']['route']}` with {evidence['operator_console']['priority_attention_items']} attention items
 - Webhook records: `{evidence['webhook_outbox']['records']}` with delivery rate `{evidence['webhook_outbox']['delivery_rate']}`
+
+## Sandbox Integration Evidence
+
+Mode: `{sandbox_evidence['mode']}`
+Outbound HTTP sent: `{sandbox_evidence['outbound_http_sent']}`
+Flow coverage rate: `{sandbox_evidence['flow_coverage_rate']}`
+
+{flow_items}
+
+- Delivery records: `{retry_behavior['delivery_records']}`
+- Attempted records: `{retry_behavior['attempted_records']}`
+- Delivered records: `{retry_behavior['delivered_records']}`
+- Attempt records: `{retry_behavior['attempt_records']}`
 
 ## Pilot Success Metrics
 

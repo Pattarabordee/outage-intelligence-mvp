@@ -114,8 +114,11 @@ Use this sequence when presenting the sandbox to utility operations, enterprise 
 Generate the public-safe evidence artifact after the walkthrough:
 
 ```bash
+python scripts/run_partner_sandbox_flow.py
 python scripts/generate_pilot_report.py --format markdown
 ```
+
+Use [partner-sandbox-playbook.md](partner-sandbox-playbook.md) when the discussion shifts from product walkthrough to integration readiness. It provides the repeatable local scenario for duplicate event handling, local retry attempts, timeout fallback, restoration closure, and pilot report readiness.
 
 ## Data Minimization
 
