@@ -153,6 +153,31 @@ def test_source_event_id_is_idempotent_per_partner(auth_client, partner_a_header
     assert first_res.json()["incident"]["id"] != other_partner_res.json()["incident"]["id"]
 
 
+def test_partner_profile_controls_sandbox_site_scope(auth_client, partner_a_headers, partner_b_headers):
+    profile_res = auth_client.put(
+        "/api/v1/partners/partner-a/sandbox-profile",
+        headers=partner_a_headers,
+        json={
+            "display_name": "Telecom Sandbox Partner",
+            "partner_class": "telecom",
+            "allowed_site_prefixes": ["TEL-"],
+            "webhook_mode": "mock_dispatch",
+            "notification_contact_label": "Partner NOC sandbox queue",
+        },
+    )
+    forbidden_profile_res = auth_client.get("/api/v1/partners/partner-a/sandbox-profile", headers=partner_b_headers)
+    denied_incident_res = create_incident(auth_client, site_id="SITE-OUTSIDE-001", headers=partner_a_headers)
+    allowed_incident_res = create_incident(auth_client, site_id="TEL-SITE-001", headers=partner_a_headers)
+
+    assert profile_res.status_code == 200
+    assert profile_res.json()["partner_class"] == "telecom"
+    assert profile_res.json()["webhook_mode"] == "mock_dispatch"
+    assert forbidden_profile_res.status_code == 403
+    assert denied_incident_res.status_code == 403
+    assert denied_incident_res.json()["error"]["code"] == "forbidden"
+    assert allowed_incident_res.status_code == 201
+
+
 def test_webhook_delivery_is_queued_signed_and_retryable(auth_client, partner_a_headers, partner_b_headers):
     create_res = create_incident(auth_client, site_id="SITE-WEBHOOK-001", headers=partner_a_headers)
     delivery_res = auth_client.get("/api/v1/webhook-deliveries", headers=partner_a_headers)
@@ -174,6 +199,44 @@ def test_webhook_delivery_is_queued_signed_and_retryable(auth_client, partner_a_
     assert retry_res.json()["attempt_count"] == 1
     assert retry_res.json()["status"] == "retry_scheduled"
     assert retry_res.json()["next_attempt_at"] is not None
+
+
+def test_webhook_delivery_attempts_update_sandbox_dispatch_state(auth_client, partner_a_headers, partner_b_headers):
+    create_res = create_incident(auth_client, site_id="SITE-WEBHOOK-ATTEMPT-001", headers=partner_a_headers)
+    delivery = auth_client.get("/api/v1/webhook-deliveries", headers=partner_a_headers).json()[0]
+
+    forbidden_attempt_res = auth_client.post(
+        f"/api/v1/webhook-deliveries/{delivery['event_id']}/attempts",
+        headers=partner_b_headers,
+        json={"outcome": "failed", "response_status": 503, "error_message": "Synthetic partner receiver unavailable"},
+    )
+    failed_attempt_res = auth_client.post(
+        f"/api/v1/webhook-deliveries/{delivery['event_id']}/attempts",
+        headers=partner_a_headers,
+        json={"outcome": "failed", "response_status": 503, "error_message": "Synthetic partner receiver unavailable"},
+    )
+    delivered_attempt_res = auth_client.post(
+        f"/api/v1/webhook-deliveries/{delivery['event_id']}/attempts",
+        headers=partner_a_headers,
+        json={"outcome": "delivered", "response_status": 202},
+    )
+    attempts_res = auth_client.get(f"/api/v1/webhook-deliveries/{delivery['event_id']}/attempts", headers=partner_a_headers)
+    retry_after_delivered_res = auth_client.post(
+        f"/api/v1/webhook-deliveries/{delivery['event_id']}/retry",
+        headers=partner_a_headers,
+    )
+
+    assert create_res.status_code == 201
+    assert forbidden_attempt_res.status_code == 403
+    assert failed_attempt_res.status_code == 201
+    assert failed_attempt_res.json()["delivery"]["status"] == "retry_scheduled"
+    assert failed_attempt_res.json()["delivery"]["attempt_count"] == 1
+    assert delivered_attempt_res.status_code == 201
+    assert delivered_attempt_res.json()["delivery"]["status"] == "delivered"
+    assert delivered_attempt_res.json()["attempt"]["attempt_number"] == 2
+    assert attempts_res.status_code == 200
+    assert [attempt["outcome"] for attempt in attempts_res.json()] == ["failed", "delivered"]
+    assert retry_after_delivered_res.status_code == 409
 
 
 def test_lifecycle_webhook_events_are_queued(auth_client, partner_a_headers):

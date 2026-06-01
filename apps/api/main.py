@@ -10,14 +10,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import settings
-from .exceptions import StateConflictError
+from .exceptions import AccessDeniedError, StateConflictError
 from .schemas import (
     FieldSignalIn,
     ImmediateResponse,
     IncidentCreate,
     IncidentOut,
     IncidentWithSignals,
+    PartnerProfileIn,
+    PartnerProfileOut,
     RestoreIn,
+    WebhookAttemptIn,
+    WebhookAttemptResultOut,
+    WebhookDeliveryAttemptOut,
     WebhookDeliveryOut,
 )
 from .security import PartnerContext, assert_partner_access, effective_partner_id, resolve_partner_context
@@ -95,6 +100,8 @@ def create_app(
             "status": "ready",
             "checks": {
                 "incident_store": "ok",
+                "partner_profile_store": "ok",
+                "webhook_outbox": "ok",
                 "sandbox_auth_configured": bool(app.state.sandbox_api_keys),
                 "data_boundary": "synthetic-public-safe",
             },
@@ -118,6 +125,31 @@ def create_app(
         if context.partner_id and delivery["partner_id"] != context.partner_id:
             raise HTTPException(status_code=403, detail="Partner cannot access this webhook delivery")
 
+    def assert_partner_profile_access(context: PartnerContext, partner_id: str) -> None:
+        if context.partner_id and context.partner_id != partner_id:
+            raise HTTPException(status_code=403, detail="Partner cannot access this sandbox profile")
+
+    @app.get("/api/v1/partners/{partner_id}/sandbox-profile", response_model=PartnerProfileOut)
+    def get_partner_profile(partner_id: str, context: PartnerContext = Depends(partner_context)):
+        assert_partner_profile_access(context, partner_id)
+        return app.state.service.ensure_partner_profile(partner_id)
+
+    @app.put("/api/v1/partners/{partner_id}/sandbox-profile", response_model=PartnerProfileOut)
+    def upsert_partner_profile(
+        partner_id: str,
+        payload: PartnerProfileIn,
+        context: PartnerContext = Depends(partner_context),
+    ):
+        assert_partner_profile_access(context, partner_id)
+        return app.state.service.upsert_partner_profile(
+            partner_id=partner_id,
+            display_name=payload.display_name,
+            partner_class=payload.partner_class,
+            allowed_site_prefixes=payload.allowed_site_prefixes,
+            webhook_mode=payload.webhook_mode,
+            notification_contact_label=payload.notification_contact_label,
+        )
+
     @app.post("/api/v1/incidents", response_model=ImmediateResponse, status_code=201)
     def create_incident(
         payload: IncidentCreate,
@@ -125,15 +157,18 @@ def create_app(
         context: PartnerContext = Depends(partner_context),
     ):
         partner_id = effective_partner_id(context, payload.partner_id)
-        incident, created = app.state.service.create_incident(
-            partner_id=partner_id,
-            client_name=payload.client_name,
-            site_id=payload.site_id,
-            province=payload.province,
-            scada_status=payload.scada_status,
-            source_event_id=payload.source_event_id,
-            idempotency_key=payload.idempotency_key,
-        )
+        try:
+            incident, created = app.state.service.create_incident(
+                partner_id=partner_id,
+                client_name=payload.client_name,
+                site_id=payload.site_id,
+                province=payload.province,
+                scada_status=payload.scada_status,
+                source_event_id=payload.source_event_id,
+                idempotency_key=payload.idempotency_key,
+            )
+        except AccessDeniedError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         if created:
             response.headers["Location"] = f"/api/v1/incidents/{incident['id']}"
         else:
@@ -219,6 +254,41 @@ def create_app(
             return app.state.service.retry_webhook_delivery(event_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except StateConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/v1/webhook-deliveries/{event_id}/attempts", response_model=list[WebhookDeliveryAttemptOut])
+    def list_webhook_attempts(event_id: str, context: PartnerContext = Depends(partner_context)):
+        try:
+            delivery = app.state.service.get_webhook_delivery(event_id)
+            assert_webhook_delivery_access(context, delivery)
+            return app.state.service.list_webhook_attempts(event_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post(
+        "/api/v1/webhook-deliveries/{event_id}/attempts",
+        response_model=WebhookAttemptResultOut,
+        status_code=201,
+    )
+    def record_webhook_attempt(
+        event_id: str,
+        payload: WebhookAttemptIn,
+        context: PartnerContext = Depends(partner_context),
+    ):
+        try:
+            delivery = app.state.service.get_webhook_delivery(event_id)
+            assert_webhook_delivery_access(context, delivery)
+            return app.state.service.record_webhook_attempt(
+                event_id=event_id,
+                outcome=payload.outcome,
+                response_status=payload.response_status,
+                error_message=payload.error_message,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except StateConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.get("/demo/incidents", response_class=HTMLResponse)
     def demo_incidents():

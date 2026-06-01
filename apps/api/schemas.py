@@ -27,6 +27,33 @@ class RestoreIn(BaseModel):
     restored_by: Literal["SCADA_SENSOR", "CLIENT_CALLBACK", "DISPATCHER"] = "SCADA_SENSOR"
 
 
+class PartnerProfileIn(BaseModel):
+    display_name: str = Field(..., min_length=1, examples=["Telecom Sandbox Partner"])
+    partner_class: Literal[
+        "telecom",
+        "data_center",
+        "industrial_estate",
+        "hospital_network",
+        "critical_infrastructure",
+        "enterprise_sandbox",
+    ] = "enterprise_sandbox"
+    allowed_site_prefixes: list[str] = Field(default_factory=lambda: ["SITE-"])
+    webhook_mode: Literal["outbox_only", "mock_dispatch"] = "outbox_only"
+    notification_contact_label: str | None = Field(default=None, examples=["Partner NOC sandbox queue"])
+
+
+class PartnerProfileOut(PartnerProfileIn):
+    partner_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WebhookAttemptIn(BaseModel):
+    outcome: Literal["delivered", "failed"]
+    response_status: int | None = Field(default=None, ge=100, le=599)
+    error_message: str | None = Field(default=None, max_length=240)
+
+
 class IncidentOut(BaseModel):
     id: str
     partner_id: str
@@ -120,6 +147,21 @@ class WebhookDeliveryOut(BaseModel):
     last_error: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class WebhookDeliveryAttemptOut(BaseModel):
+    id: int
+    event_id: str
+    attempt_number: int
+    outcome: str
+    response_status: int | None = None
+    error_message: str | None = None
+    created_at: datetime
+
+
+class WebhookAttemptResultOut(BaseModel):
+    delivery: WebhookDeliveryOut
+    attempt: WebhookDeliveryAttemptOut
 
 
 class ErrorDetail(BaseModel):

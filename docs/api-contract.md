@@ -2,6 +2,28 @@
 
 This contract describes a public-safe partner-facing API shape for enterprise outage coordination. All examples use synthetic identifiers and synthetic payloads.
 
+## PUT `/api/v1/partners/{partner_id}/sandbox-profile`
+
+Creates or updates public-safe partner sandbox metadata. This is not a production partner master-data system; it exists to demonstrate tenant-aware configuration for pilot discussions.
+
+Request:
+
+```json
+{
+  "display_name": "Telecom Sandbox Partner",
+  "partner_class": "telecom",
+  "allowed_site_prefixes": ["TEL-"],
+  "webhook_mode": "mock_dispatch",
+  "notification_contact_label": "Partner NOC sandbox queue"
+}
+```
+
+Notes:
+
+- `allowed_site_prefixes` scopes which synthetic site IDs the partner may create incidents for.
+- `notification_contact_label` is a public-safe label, not a real endpoint, email address, or contact.
+- Authenticated requests must use the same `partner_id` in the path and `X-Partner-Id` header.
+
 ## POST `/api/v1/incidents`
 
 Creates an outage incident and returns an immediate ETA decision for partner operations.
@@ -136,6 +158,30 @@ Example response:
 Schedules a local retry for a queued delivery record. The endpoint increments `attempt_count`, sets `status` to `retry_scheduled`, and calculates `next_attempt_at` using a simple backoff policy. It does not send network traffic.
 
 Access is partner-scoped: one partner cannot inspect or retry another partner's delivery record.
+
+## POST `/api/v1/webhook-deliveries/{event_id}/attempts`
+
+Records a sandbox delivery attempt for the local webhook outbox. This simulates a delivery worker without sending network traffic.
+
+Request:
+
+```json
+{
+  "outcome": "failed",
+  "response_status": 503,
+  "error_message": "Synthetic partner receiver unavailable"
+}
+```
+
+State behavior:
+
+- `delivered` marks the delivery as complete.
+- `failed` increments `attempt_count`.
+- Failed attempts schedule retry until `max_attempts` is reached.
+- Once max attempts are reached, status becomes `exhausted`.
+- Attempts after `delivered` return `409 Conflict`.
+
+`GET /api/v1/webhook-deliveries/{event_id}/attempts` lists recorded sandbox attempts for the authenticated partner.
 
 ## Error Format
 

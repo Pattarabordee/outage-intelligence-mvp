@@ -65,6 +65,17 @@ CREATE TABLE IF NOT EXISTS incident_events (
     FOREIGN KEY(incident_id) REFERENCES incidents(id)
 );
 
+CREATE TABLE IF NOT EXISTS partner_profiles (
+    partner_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    partner_class TEXT NOT NULL,
+    allowed_site_prefixes_json TEXT NOT NULL,
+    webhook_mode TEXT NOT NULL,
+    notification_contact_label TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS webhook_deliveries (
     event_id TEXT PRIMARY KEY,
     partner_id TEXT NOT NULL,
@@ -79,6 +90,17 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
     last_error TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS webhook_delivery_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL,
+    attempt_number INTEGER NOT NULL,
+    outcome TEXT NOT NULL,
+    response_status INTEGER,
+    error_message TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(event_id) REFERENCES webhook_deliveries(event_id)
 );
 
 """

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .config import settings
 from .database import fetch_all, fetch_one, get_connection, init_db
-from .exceptions import StateConflictError
+from .exceptions import AccessDeniedError, StateConflictError
 from .observability import log_event
 from .rules import (
     POLICY_VERSION,
@@ -102,6 +102,19 @@ def row_to_event(row: sqlite3.Row) -> JSONDict:
     }
 
 
+def row_to_partner_profile(row: sqlite3.Row) -> JSONDict:
+    return {
+        "partner_id": row["partner_id"],
+        "display_name": row["display_name"],
+        "partner_class": row["partner_class"],
+        "allowed_site_prefixes": _loads_json(row["allowed_site_prefixes_json"], []),
+        "webhook_mode": row["webhook_mode"],
+        "notification_contact_label": row["notification_contact_label"],
+        "created_at": parse_dt(row["created_at"]),
+        "updated_at": parse_dt(row["updated_at"]),
+    }
+
+
 def row_to_webhook_delivery(row: sqlite3.Row) -> JSONDict:
     return {
         "event_id": row["event_id"],
@@ -117,6 +130,18 @@ def row_to_webhook_delivery(row: sqlite3.Row) -> JSONDict:
         "last_error": row["last_error"],
         "created_at": parse_dt(row["created_at"]),
         "updated_at": parse_dt(row["updated_at"]),
+    }
+
+
+def row_to_webhook_attempt(row: sqlite3.Row) -> JSONDict:
+    return {
+        "id": row["id"],
+        "event_id": row["event_id"],
+        "attempt_number": row["attempt_number"],
+        "outcome": row["outcome"],
+        "response_status": row["response_status"],
+        "error_message": row["error_message"],
+        "created_at": parse_dt(row["created_at"]),
     }
 
 
@@ -151,6 +176,8 @@ class IncidentService:
         source_event_id: str | None = None,
         idempotency_key: str | None = None,
     ) -> tuple[JSONDict, bool]:
+        self.ensure_partner_profile(partner_id, display_name=client_name)
+        self.validate_partner_site_scope(partner_id, site_id)
         idempotency_value = source_event_id or idempotency_key
         if idempotency_value:
             existing = self.get_incident_by_source_event_id(partner_id, idempotency_value)
@@ -225,6 +252,98 @@ class IncidentService:
         incident = self.get_incident(incident_id)
         self.enqueue_webhook_delivery(incident, "incident.created")
         return incident, True
+
+    def ensure_partner_profile(self, partner_id: str, display_name: str | None = None) -> JSONDict:
+        existing = self.get_partner_profile(partner_id)
+        if existing:
+            return existing
+
+        now = utcnow()
+        profile = {
+            "partner_id": partner_id,
+            "display_name": display_name or "Demo Enterprise Partner",
+            "partner_class": "enterprise_sandbox",
+            "allowed_site_prefixes": ["SITE-"],
+            "webhook_mode": "outbox_only",
+            "notification_contact_label": "Sandbox operations queue",
+            "created_at": now,
+            "updated_at": now,
+        }
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO partner_profiles (
+                    partner_id, display_name, partner_class, allowed_site_prefixes_json,
+                    webhook_mode, notification_contact_label, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    profile["partner_id"],
+                    profile["display_name"],
+                    profile["partner_class"],
+                    json.dumps(profile["allowed_site_prefixes"]),
+                    profile["webhook_mode"],
+                    profile["notification_contact_label"],
+                    dtstr(now),
+                    dtstr(now),
+                ),
+            )
+            conn.commit()
+        log_event("partner_profile_created", partner_id=partner_id, partner_class=profile["partner_class"])
+        return profile
+
+    def upsert_partner_profile(
+        self,
+        partner_id: str,
+        display_name: str,
+        partner_class: str,
+        allowed_site_prefixes: list[str],
+        webhook_mode: str,
+        notification_contact_label: str | None,
+    ) -> JSONDict:
+        now = utcnow()
+        existing = self.get_partner_profile(partner_id)
+        created_at = existing["created_at"] if existing else now
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO partner_profiles (
+                    partner_id, display_name, partner_class, allowed_site_prefixes_json,
+                    webhook_mode, notification_contact_label, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(partner_id) DO UPDATE SET
+                    display_name = excluded.display_name,
+                    partner_class = excluded.partner_class,
+                    allowed_site_prefixes_json = excluded.allowed_site_prefixes_json,
+                    webhook_mode = excluded.webhook_mode,
+                    notification_contact_label = excluded.notification_contact_label,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    partner_id,
+                    display_name,
+                    partner_class,
+                    json.dumps(allowed_site_prefixes),
+                    webhook_mode,
+                    notification_contact_label,
+                    dtstr(created_at),
+                    dtstr(now),
+                ),
+            )
+            conn.commit()
+        log_event("partner_profile_upserted", partner_id=partner_id, partner_class=partner_class)
+        return self.get_partner_profile(partner_id) or self.ensure_partner_profile(partner_id, display_name)
+
+    def get_partner_profile(self, partner_id: str) -> JSONDict | None:
+        with self._conn() as conn:
+            row = fetch_one(conn, "SELECT * FROM partner_profiles WHERE partner_id = ?", (partner_id,))
+            return row_to_partner_profile(row) if row else None
+
+    def validate_partner_site_scope(self, partner_id: str, site_id: str) -> None:
+        profile = self.get_partner_profile(partner_id)
+        prefixes = profile["allowed_site_prefixes"] if profile else []
+        if prefixes and not any(site_id.startswith(prefix) for prefix in prefixes):
+            raise AccessDeniedError(f"site_id is outside the partner sandbox scope: {site_id}")
 
     def get_incident_by_source_event_id(self, partner_id: str, source_event_id: str) -> JSONDict | None:
         with self._conn() as conn:
@@ -542,6 +661,8 @@ class IncidentService:
 
     def retry_webhook_delivery(self, event_id: str) -> JSONDict:
         delivery = self.get_webhook_delivery(event_id)
+        if delivery["status"] == "delivered":
+            raise StateConflictError(f"Webhook delivery is already delivered: {event_id}")
         now = utcnow()
         next_attempt_count = delivery["attempt_count"] + 1
         if delivery["attempt_count"] >= delivery["max_attempts"]:
@@ -572,6 +693,86 @@ class IncidentService:
             conn.commit()
         log_event("webhook_retry_requested", event_id=event_id, partner_id=delivery["partner_id"], status=status)
         return self.get_webhook_delivery(event_id)
+
+    def record_webhook_attempt(
+        self,
+        event_id: str,
+        outcome: str,
+        response_status: int | None = None,
+        error_message: str | None = None,
+    ) -> JSONDict:
+        delivery = self.get_webhook_delivery(event_id)
+        if delivery["status"] == "delivered":
+            raise StateConflictError(f"Webhook delivery is already delivered: {event_id}")
+
+        now = utcnow()
+        attempt_number = delivery["attempt_count"] + 1
+        if outcome == "delivered":
+            delivery_status = "delivered"
+            next_attempt_at = None
+            last_error = None
+        else:
+            if attempt_number >= delivery["max_attempts"]:
+                delivery_status = "exhausted"
+                next_attempt_at = None
+            else:
+                delivery_status = "retry_scheduled"
+                next_attempt_at = now + timedelta(minutes=2 ** max(attempt_number - 1, 0))
+            last_error = error_message or "Sandbox delivery attempt failed."
+
+        with self._conn() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO webhook_delivery_attempts (
+                    event_id, attempt_number, outcome, response_status, error_message, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, attempt_number, outcome, response_status, error_message, dtstr(now)),
+            )
+            conn.execute(
+                """
+                UPDATE webhook_deliveries
+                SET status = ?, attempt_count = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
+                WHERE event_id = ?
+                """,
+                (
+                    delivery_status,
+                    attempt_number,
+                    dtstr(next_attempt_at),
+                    last_error,
+                    dtstr(now),
+                    event_id,
+                ),
+            )
+            conn.commit()
+            attempt_id = cur.lastrowid
+        log_event(
+            "webhook_attempt_recorded",
+            event_id=event_id,
+            partner_id=delivery["partner_id"],
+            outcome=outcome,
+            delivery_status=delivery_status,
+        )
+        return {
+            "delivery": self.get_webhook_delivery(event_id),
+            "attempt": self.get_webhook_attempt(attempt_id),
+        }
+
+    def get_webhook_attempt(self, attempt_id: int) -> JSONDict:
+        with self._conn() as conn:
+            row = fetch_one(conn, "SELECT * FROM webhook_delivery_attempts WHERE id = ?", (attempt_id,))
+            if not row:
+                raise KeyError(f"Webhook delivery attempt not found: {attempt_id}")
+            return row_to_webhook_attempt(row)
+
+    def list_webhook_attempts(self, event_id: str) -> list[JSONDict]:
+        with self._conn() as conn:
+            rows = fetch_all(
+                conn,
+                "SELECT * FROM webhook_delivery_attempts WHERE event_id = ? ORDER BY attempt_number ASC",
+                (event_id,),
+            )
+            return [row_to_webhook_attempt(row) for row in rows]
 
     def export_closed_incidents_dataset(self) -> list[JSONDict]:
         with self._conn() as conn:

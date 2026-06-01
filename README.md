@@ -14,7 +14,8 @@ This repository is a synthetic reference implementation. It is not a production 
 - Synthetic data, synthetic identifiers, and no real partner payloads
 - Tested workflows for incident creation, ETA revision, timeout fallback, restoration closure, idempotency, and audit trail
 - Optional sandbox API-key boundary for partner pilot conversations
-- Local webhook outbox with signed payload metadata and retry scheduling for sandbox integration design
+- Partner sandbox profiles with site-scope boundaries and webhook mode metadata
+- Local webhook outbox with signed payload metadata, delivery attempts, and retry scheduling for sandbox integration design
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -96,7 +97,11 @@ The response includes:
 
 Sandbox partner auth can be enabled by configuring `OUTAGE_SANDBOX_API_KEYS` and sending `X-Partner-Id` plus `X-API-Key`. If no keys are configured, auth stays disabled so the public prototype remains easy to run locally.
 
-### 2. Revise ETA from field evidence
+### 2. Configure a partner sandbox profile
+
+`PUT /api/v1/partners/{partner_id}/sandbox-profile` stores public-safe pilot metadata such as partner class, allowed synthetic site prefixes, and webhook mode. This lets the prototype demonstrate tenant-aware scope checks without exposing real topology or partner details.
+
+### 3. Revise ETA from field evidence
 
 `POST /api/v1/incidents/{incident_id}/signals/field` ingests a synthetic field signal, stores it in the audit trail, and revises the ETA when the policy engine finds stronger evidence.
 
@@ -108,21 +113,23 @@ Sandbox partner auth can be enabled by configuring `OUTAGE_SANDBOX_API_KEYS` and
 }
 ```
 
-### 3. Apply timeout fallback
+### 4. Apply timeout fallback
 
 `POST /api/v1/incidents/{incident_id}/timeout-check` applies a deterministic worst-case ETA if the incident has not received useful evidence within the configured timeout window. The operation is idempotent.
 
-### 4. Close the loop with restoration ground truth
+### 5. Close the loop with restoration ground truth
 
 `POST /api/v1/incidents/{incident_id}/restore` closes the incident, records restoration metadata, and makes the case available for analytics export.
 
-### 5. Inspect partner webhook delivery records
+### 6. Inspect partner webhook delivery records
 
 The prototype uses a local webhook outbox rather than sending HTTP callbacks. This keeps the public repo safe while still demonstrating retry-safe partner notification design.
 
 - `GET /api/v1/webhook-deliveries`
 - `GET /api/v1/webhook-deliveries/{event_id}`
 - `POST /api/v1/webhook-deliveries/{event_id}/retry`
+- `GET /api/v1/webhook-deliveries/{event_id}/attempts`
+- `POST /api/v1/webhook-deliveries/{event_id}/attempts`
 
 When `OUTAGE_WEBHOOK_SECRET` is configured, queued delivery records include an HMAC-style `X-Webhook-Signature`. Without a configured secret, payloads are explicitly marked as `unsigned`.
 

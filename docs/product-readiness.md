@@ -6,10 +6,11 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 
 - Partner-facing API shape with versioned `/api/v1` routes
 - Optional sandbox API-key authentication and partner boundary
+- Partner sandbox profiles with synthetic site-scope controls
 - Idempotency for incident and field-signal ingestion
 - Standardized error response shape
 - Audit trail for ETA revisions, timeout fallback, and restoration closure
-- Local webhook outbox with signed metadata and retry scheduling
+- Local webhook outbox with signed metadata, retry scheduling, and sandbox delivery attempts
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -18,6 +19,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 
 - Production-grade authentication and partner authorization
 - Strong tenant isolation beyond the local SQLite prototype
+- Production partner registry, contract lifecycle, and site authorization source of truth
 - Rate limiting and replay protection for write endpoints
 - Real outbound webhook delivery workers and receiver-side signature verification
 - Database migration strategy beyond local SQLite

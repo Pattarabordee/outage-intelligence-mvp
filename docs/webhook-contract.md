@@ -9,6 +9,7 @@ This document describes the public-safe outbound notification contract for a fut
 - Delivery should be retry-safe through `event_id` idempotency.
 - Delivery records can be inspected through `/api/v1/webhook-deliveries`.
 - Sandbox retry scheduling is available through `/api/v1/webhook-deliveries/{event_id}/retry`.
+- Sandbox delivery outcomes can be recorded through `/api/v1/webhook-deliveries/{event_id}/attempts`.
 - Production pilots should sign payloads with an environment-managed webhook secret.
 - No outbound HTTP request is made by this public prototype.
 
@@ -63,3 +64,14 @@ In this prototype:
 - Retries must not duplicate partner-side ticket updates.
 - Out-of-order delivery should be handled by comparing `occurred_at` and current incident status.
 - The local retry endpoint updates outbox state only; production delivery workers would be implemented in a private deployment.
+
+## Sandbox Attempt States
+
+The public prototype supports a mock dispatcher state machine:
+
+- `queued`: delivery intent has been recorded.
+- `retry_scheduled`: a failed attempt or manual retry has scheduled another local attempt.
+- `delivered`: sandbox receiver simulation accepted the event.
+- `exhausted`: max local attempts were reached.
+
+Attempt records store only synthetic status metadata such as outcome, response status, and public-safe error text.

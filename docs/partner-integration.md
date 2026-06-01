@@ -11,12 +11,13 @@ This guide describes how an enterprise partner system could integrate with the o
 
 ## Integration Flow
 
-1. Partner system sends an outage event with `source_event_id`.
-2. API creates an incident and returns ETA, recommendation, partner action, confidence, and policy explanation.
-3. Utility field signals revise the ETA through `/signals/field`.
-4. Timeout check applies a deterministic fallback if evidence is missing.
-5. Webhook delivery records are queued locally for partner notification review.
-6. Restoration closes the incident and preserves ground truth for analytics.
+1. Partner sandbox profile defines partner class, synthetic site scope, and webhook mode.
+2. Partner system sends an outage event with `source_event_id`.
+3. API creates an incident and returns ETA, recommendation, partner action, confidence, and policy explanation.
+4. Utility field signals revise the ETA through `/signals/field`.
+5. Timeout check applies a deterministic fallback if evidence is missing.
+6. Webhook delivery records and sandbox attempts track partner notification readiness.
+7. Restoration closes the incident and preserves ground truth for analytics.
 
 ## Synthetic Partner Payload
 
@@ -50,6 +51,17 @@ When enabled, clients must send:
 
 The request `partner_id`, when present, must match `X-Partner-Id`.
 
+## Partner Sandbox Profile
+
+Use `PUT /api/v1/partners/{partner_id}/sandbox-profile` to configure public-safe pilot metadata:
+
+- `partner_class`: example partner category such as `telecom`, `data_center`, or `hospital_network`
+- `allowed_site_prefixes`: synthetic site prefixes the partner is allowed to submit
+- `webhook_mode`: `outbox_only` or `mock_dispatch`
+- `notification_contact_label`: a generic label for demo storytelling, not a real endpoint
+
+The profile boundary is intentionally lightweight. It demonstrates pilot readiness without claiming production-grade master data, authorization, or topology management.
+
 ## Webhook Outbox
 
 This public prototype uses a local outbox instead of sending real callbacks:
@@ -57,6 +69,8 @@ This public prototype uses a local outbox instead of sending real callbacks:
 - `GET /api/v1/webhook-deliveries` lists partner-scoped delivery records.
 - `GET /api/v1/webhook-deliveries/{event_id}` retrieves one delivery record.
 - `POST /api/v1/webhook-deliveries/{event_id}/retry` schedules a local retry and updates attempt metadata.
+- `POST /api/v1/webhook-deliveries/{event_id}/attempts` records a sandbox delivery outcome such as `delivered` or `failed`.
+- `GET /api/v1/webhook-deliveries/{event_id}/attempts` lists sandbox delivery attempts.
 
 Configure `OUTAGE_WEBHOOK_SECRET` to generate sandbox HMAC signatures in `X-Webhook-Signature`. Do not store real callback URLs, production secrets, or partner endpoint details in this repository.
 
