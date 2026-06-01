@@ -312,6 +312,7 @@ def create_app(
 
         metrics = summary["metrics"]
         pilot_status = summary["pilot_status"]
+        report_snapshot = summary["pilot_report_snapshot"]
         attention_level = esc(pilot_status["highest_attention_level"].split("_", maxsplit=1)[0])
         metric_cards = "".join(
             [
@@ -326,6 +327,17 @@ def create_app(
             ]
         )
         question_items = "".join(f"<li>{esc(question)}</li>" for question in summary["operating_questions"])
+        report_snapshot_cards = "".join(
+            [
+                f"<article><span>{label}</span><strong>{esc(value)}</strong></article>"
+                for label, value in [
+                    ("ETA MAE", f"{report_snapshot['eta_mae_hours']}h"),
+                    ("Underestimate", percent(report_snapshot["underestimation_rate"])),
+                    ("Timeout fallback", percent(report_snapshot["timeout_fallback_rate"])),
+                    ("Webhook delivery", percent(report_snapshot["webhook_delivery_rate"])),
+                ]
+            ]
+        )
         active_rows = "".join(
             [
                 "<tr>"
@@ -538,6 +550,10 @@ def create_app(
             .action-card h3 {{ margin: 7px 0; color: var(--navy); }}
             .next-step {{ padding: 10px 12px; border-radius: 14px; background: #f8fafc; }}
             .priority-line {{ display: block; margin-bottom: 6px; color: var(--amber); font-weight: 900; }}
+            .report-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+            .report-grid article {{ border: 1px solid #dbe4ef; border-radius: 16px; padding: 12px; background: #f8fafc; }}
+            .report-grid span {{ display: block; color: var(--muted); font-size: .75rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }}
+            .report-grid strong {{ display: block; color: var(--navy); font-size: 1.35rem; margin-top: 4px; }}
             .safe-list {{ margin: 0; padding-left: 20px; }}
             .safe-list li {{ margin: 6px 0; }}
             a:focus, button:focus, [tabindex]:focus {{ outline: 3px solid var(--focus); outline-offset: 3px; }}
@@ -620,6 +636,12 @@ def create_app(
                 <section class="panel" aria-labelledby="actions-title">
                   <h2 id="actions-title">Partner Actions</h2>
                   <div class="action-grid">{action_cards}</div>
+                </section>
+
+                <section class="panel" aria-labelledby="pilot-report-title">
+                  <h2 id="pilot-report-title">Pilot Report Snapshot</h2>
+                  <p>Evidence metrics for the private pilot conversation. Generate the full report with <code>python scripts/generate_pilot_report.py</code>.</p>
+                  <div class="report-grid">{report_snapshot_cards}</div>
                 </section>
 
                 <section class="panel" aria-labelledby="closed-loop-title">

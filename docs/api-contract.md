@@ -204,6 +204,7 @@ Response includes:
 - `operating_questions`: the operational questions the console is organized around
 - `metrics`: active incident count, timeout risk count, webhook queue count, closed-loop rows, and partner profiles
 - `pilot_status`: read-only pilot mode, readiness label, highest attention level, and operator brief
+- `pilot_report_snapshot`: summarized ETA, timeout, webhook, audit, and ground-truth metrics for the console
 - `active_incidents`: current synthetic cases with ETA, confidence, reason code, and minutes since update
 - `timeout_risk`: incidents approaching or already using timeout fallback
 - `webhook_queue`: local outbox records that are queued, retry scheduled, failed, or exhausted

@@ -18,6 +18,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Local webhook outbox with signed payload metadata, delivery attempts, and retry scheduling for sandbox integration design
 - Executive demo page and read-only summary feed for a 3-minute partner pilot walkthrough
 - Operator pilot console and read-only summary feed for NOC-style workflow review
+- Private pilot evidence report for workflow, risk, webhook, and evaluation discussion
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -197,6 +198,8 @@ More detail is available in [docs/security-and-governance.md](docs/security-and-
 
 See [docs/partner-integration.md](docs/partner-integration.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
 
+For pilot discussion artifacts, see [docs/private-pilot-runbook.md](docs/private-pilot-runbook.md) and [docs/pilot-success-metrics.md](docs/pilot-success-metrics.md).
+
 ## Quick Start
 
 ```bash
@@ -232,6 +235,7 @@ python scripts/seed_demo_data.py
 pytest -q
 pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
 python scripts/evaluate_product_metrics.py
+python scripts/generate_pilot_report.py
 ```
 
 ## Product Summary

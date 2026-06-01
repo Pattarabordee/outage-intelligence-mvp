@@ -23,6 +23,7 @@ Train a reproducible baseline from synthetic closed incidents:
 ```bash
 python scripts/train_eta_baseline.py
 python scripts/evaluate_product_metrics.py
+python scripts/generate_pilot_report.py
 ```
 
 The current baseline predicts restoration duration from the mean duration by `scada_status`. It reports:
@@ -41,3 +42,11 @@ The current baseline predicts restoration duration from the mean duration by `sc
 - Prolonged-outage baseline recall
 
 These metrics turn the outage workflow into a data product rather than only a prototype API.
+
+## Private Pilot Evidence Report
+
+`scripts/generate_pilot_report.py` combines workflow evidence, webhook outbox state, pilot success metrics, public-safe controls, and production gaps into a single JSON or Markdown artifact for pilot discussion.
+
+```bash
+python scripts/generate_pilot_report.py --format markdown
+```

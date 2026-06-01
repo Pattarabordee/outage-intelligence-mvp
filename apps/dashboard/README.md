@@ -24,6 +24,8 @@ The operator console is designed around live workflow questions:
 
 The v0.7 console adds a private-pilot triage layer: a highest-attention banner, priority labels, and next-step language for incidents and webhook queue items. This keeps the page useful for a NOC-style conversation without turning the public prototype into a production dashboard.
 
+The v0.8 evidence pack adds a `Pilot Report Snapshot` panel backed by the same metric semantics as `scripts/generate_pilot_report.py`. The panel is intentionally compact: it gives the operator enough evidence to discuss pilot readiness without turning the demo into a live monitoring product.
+
 The current implementation intentionally stays inside the FastAPI service so the repo remains easy to clone and run. A separate frontend can be added later when the operator dashboard needs richer interactivity.
 
 A production dashboard could be split into a separate frontend and add:

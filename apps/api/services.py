@@ -12,6 +12,7 @@ from .config import settings
 from .database import fetch_all, fetch_one, get_connection, init_db
 from .exceptions import AccessDeniedError, StateConflictError
 from .observability import log_event
+from .reporting import evaluate_rows, rate
 from .rules import (
     POLICY_VERSION,
     TIMEOUT_MINUTES,
@@ -993,6 +994,16 @@ class IncidentService:
         closed_incidents = [incident for incident in incidents if incident["status"] == "CLOSED"]
         restored_count = len([incident for incident in closed_incidents if incident["restored_at"] is not None])
         ground_truth_coverage = round(restored_count / len(closed_incidents), 3) if closed_incidents else 0.0
+        delivered_count = len([delivery for delivery in deliveries if delivery["status"] == "delivered"])
+        attempted_count = len([delivery for delivery in deliveries if delivery["attempt_count"] > 0])
+        evaluation_snapshot = evaluate_rows(closed_dataset) if closed_dataset else {
+            "rows": 0,
+            "eta_mae_hours": 0.0,
+            "underestimation_rate": 0.0,
+            "timeout_fallback_rate": 0.0,
+            "audit_completeness_rate": 0.0,
+            "restoration_ground_truth_coverage": 0.0,
+        }
         priority_rank = {
             "P1_FAILSAFE_ACTIVE": 0,
             "P1_TIMEOUT_WATCH": 1,
@@ -1037,6 +1048,15 @@ class IncidentService:
                 "closed_loop_rows": len(closed_dataset),
                 "partner_profiles": len(profiles),
                 "priority_attention_items": len(timeout_cards) + len(webhook_queue),
+            },
+            "pilot_report_snapshot": {
+                "eta_mae_hours": evaluation_snapshot["eta_mae_hours"],
+                "underestimation_rate": evaluation_snapshot["underestimation_rate"],
+                "timeout_fallback_rate": evaluation_snapshot["timeout_fallback_rate"],
+                "webhook_delivery_rate": rate(delivered_count, len(deliveries)),
+                "webhook_attempt_rate": rate(attempted_count, len(deliveries)),
+                "audit_completeness_rate": evaluation_snapshot["audit_completeness_rate"],
+                "restoration_ground_truth_coverage": evaluation_snapshot["restoration_ground_truth_coverage"],
             },
             "active_incidents": active_cards,
             "timeout_risk": timeout_cards,

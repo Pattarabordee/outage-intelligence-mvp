@@ -111,6 +111,12 @@ Use this sequence when presenting the sandbox to utility operations, enterprise 
 4. Show timeout risk and webhook queue as the two operational queues that need attention before partner handoff.
 5. Close with closed-loop data coverage and explain which production gaps remain before live use.
 
+Generate the public-safe evidence artifact after the walkthrough:
+
+```bash
+python scripts/generate_pilot_report.py --format markdown
+```
+
 ## Data Minimization
 
 Send only the operational fields needed for outage decisions. Avoid real names, chat messages, endpoint URLs, topology, GPS coordinates, and commercial terms in public prototype environments.

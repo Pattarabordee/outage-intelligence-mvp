@@ -14,6 +14,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Executive demo summary feed and public-safe walkthrough page
 - Operator pilot console summary feed and public-safe workflow page
 - Operator priority and next-step labels for private pilot discussion
+- Private pilot evidence report and success metric definitions
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -34,6 +35,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 
 1. Keep the current repo as a reference implementation and product demo.
 2. Use the executive and operator demo surfaces to align the private pilot workflow.
-3. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
-4. Run side-by-side evaluation against historical synthetic or de-identified incidents.
-5. Promote only explainable, measured policy changes into operational workflows.
+3. Generate the private pilot evidence report and agree on success metrics.
+4. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
+5. Run side-by-side evaluation against historical synthetic or de-identified incidents.
+6. Promote only explainable, measured policy changes into operational workflows.
