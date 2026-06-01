@@ -34,9 +34,12 @@ The first baseline is intentionally simple and reproducible:
 ```bash
 python scripts/train_eta_baseline.py
 python scripts/evaluate_product_metrics.py
+python scripts/run_ml_baseline_benchmark.py
 ```
 
-It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. Product metrics additionally track timeout fallback rate, audit completeness, ground-truth coverage, and a simple prolonged-outage baseline. This provides a measurable floor before introducing richer supervised-learning models.
+It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. The benchmark compares this against the current rules-first ETA, a global mean baseline, and a partner-class mean baseline on a chronological synthetic holdout.
+
+Product metrics additionally track timeout fallback rate, audit completeness, ground-truth coverage, and prolonged-outage recall. This provides a measurable floor before introducing richer supervised-learning models.
 
 ## Candidate Features
 
@@ -68,3 +71,15 @@ Text-derived:
 - Dispatch decision policy optimization
 
 Any future model should be evaluated against the current rules-first baseline before being used for operational recommendations.
+
+## Current Benchmark Boundary
+
+The current ML benchmark is for private sandbox discussion only:
+
+- synthetic closed incidents only
+- no model artifact deployed
+- no outbound integration
+- no production decision automation
+- public-safe output checks
+
+The next ML step is not deep learning. It is side-by-side shadow evaluation on a larger governed sandbox dataset, with model-card style documentation and explicit acceptance criteria for ETA underestimation and prolonged-outage recall.

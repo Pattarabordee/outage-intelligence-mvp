@@ -82,12 +82,24 @@ Run the private sandbox readiness gate:
 
 ```bash
 python scripts/public_safe_scan.py
+python scripts/run_ml_baseline_benchmark.py
 python scripts/generate_readiness_gate.py
 ```
 
 Use [private-sandbox-acceptance-criteria.md](private-sandbox-acceptance-criteria.md) as the go/no-go checklist. The expected discussion outcome is `ready_for_private_sandbox_discussion`, not production approval.
 
-## 7. Webhook Retry Discussion
+## 7. ML Baseline Benchmark
+
+Run the ETA policy benchmark:
+
+```bash
+python scripts/run_ml_baseline_benchmark.py
+python scripts/run_ml_baseline_benchmark.py --format markdown
+```
+
+Use [ml-baseline-benchmark.md](ml-baseline-benchmark.md) to compare the rules-first ETA policy with simple statistical baselines. The discussion should focus on measurable pilot evidence, underestimation risk, prolonged-outage recall, and why no model is deployed from this public-safe prototype.
+
+## 8. Webhook Retry Discussion
 
 The prototype records local outbox events instead of sending HTTP callbacks. This keeps the public repo safe while demonstrating retry and deduplication design.
 
@@ -99,7 +111,7 @@ Discuss:
 - future receiver-side verification for a private sandbox
 - why no live network target is stored in the repository
 
-## 8. Evaluation And ML-Readiness Discussion
+## 9. Evaluation And ML-Readiness Discussion
 
 Generate a pilot evidence report:
 
@@ -120,8 +132,9 @@ Use the report to connect product behavior to measurable pilot outcomes:
 - sandbox integration evidence
 - readiness gate decision
 - scenario matrix evidence
+- ML baseline evidence
 
-## 9. Production Gaps Before Live Use
+## 10. Production Gaps Before Live Use
 
 The prototype is ready for pilot discussion, not live production use.
 

@@ -16,6 +16,8 @@ This document defines the metrics used to judge whether the private pilot workfl
 | Partner action distribution | Shows how often the system recommends waiting, preparing, or activating backup. | Operator console summary |
 | Sandbox integration coverage | Confirms the local flow exercised create, revise, timeout, restore, duplicate handling, and retry behavior. | Partner sandbox flow |
 | Scenario matrix pass rate | Confirms repeatable benchmark coverage across pilot-relevant cases. | Pilot scenario matrix |
+| ML baseline benchmark status | Confirms ETA policy quality can be measured against simple baselines before model complexity is added. | ML baseline benchmark |
+| Prolonged-outage recall | Measures whether the ETA policy identifies cases that may require earlier backup activation. | ML baseline benchmark |
 | Readiness gate status | Separates private sandbox readiness from production readiness. | Readiness gate report |
 
 ## Pilot Targets
@@ -25,6 +27,7 @@ These are discussion targets, not production SLAs:
 - Audit completeness should remain close to `1.0` in synthetic demos.
 - Ground-truth coverage should remain close to `1.0` for closed synthetic cases.
 - Underestimation rate should trend down before any future supervised-learning model is promoted.
+- Prolonged-outage recall should be reviewed before changing backup-action policy.
 - Timeout fallback rate should be reviewed with operators to separate useful protection from missing evidence.
 - Webhook attempt and delivery rates should be used to validate retry-safe partner integration behavior.
 
@@ -43,6 +46,7 @@ Run the partner sandbox proof before the report when you want integration eviden
 python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
 python scripts/run_pilot_scenario_matrix.py
+python scripts/run_ml_baseline_benchmark.py
 python scripts/generate_readiness_gate.py
 ```
 
@@ -55,5 +59,6 @@ Do not move directly to complex ML. The recommended sequence is:
 1. Stabilize closed-loop data collection.
 2. Measure rule-first ETA performance.
 3. Track underestimation and prolonged-outage recall.
-4. Add a simple supervised baseline only after the evidence report is stable.
-5. Compare any future model against the rules-first baseline before operational use.
+4. Compare the rules-first policy against simple statistical baselines.
+5. Add a supervised model only after the evidence report and benchmark are stable.
+6. Compare any future model against the rules-first baseline before operational use.

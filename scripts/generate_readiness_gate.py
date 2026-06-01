@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 
 from apps.api.services import IncidentService
 from scripts.public_safe_scan import scan_public_safe
+from scripts.run_ml_baseline_benchmark import build_ml_baseline_benchmark
 from scripts.run_partner_sandbox_flow import run_partner_sandbox_flow
 from scripts.run_pilot_scenario_matrix import run_pilot_scenario_matrix
 
@@ -32,6 +33,7 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
 
     scan = scan_public_safe(root=root)
     scenario_matrix = run_pilot_scenario_matrix()
+    ml_benchmark = build_ml_baseline_benchmark()
     integration = sandbox_summary["sandbox_integration_evidence"]
     idempotency = sandbox_summary["idempotency_result"]
     retry = sandbox_summary["webhook_retry_result"]
@@ -84,6 +86,13 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
             scenario_matrix["failed"] == 0 and scenario_matrix["scenario_count"] >= 7,
             f"{scenario_matrix['passed']}/{scenario_matrix['scenario_count']} scenarios passed",
         ),
+        _check(
+            "ml_baseline_benchmark",
+            ml_benchmark["benchmark_ready"] is True
+            and ml_benchmark["public_safe_checks"]["status"] == "passed"
+            and ml_benchmark["governance"]["no_model_deployed"] is True,
+            f"best policy {ml_benchmark['benchmark_summary']['best_policy_by_mae']} with benchmark-only governance",
+        ),
     ]
     sandbox_ready = all(check["status"] == "passed" for check in checks)
 
@@ -120,6 +129,16 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
             "public_safe_status": scenario_matrix["public_safe_checks"]["status"],
             "coverage_by_capability": scenario_matrix["coverage_by_capability"],
         },
+        "ml_baseline": {
+            "benchmark_ready": ml_benchmark["benchmark_ready"],
+            "policy_count": len(ml_benchmark["policies"]),
+            "best_policy_by_mae": ml_benchmark["benchmark_summary"]["best_policy_by_mae"],
+            "rules_first_mae_hours": ml_benchmark["benchmark_summary"].get("rules_first_mae_hours"),
+            "best_policy_mae_hours": ml_benchmark["benchmark_summary"].get("best_policy_mae_hours"),
+            "public_safe_status": ml_benchmark["public_safe_checks"]["status"],
+            "no_model_deployed": ml_benchmark["governance"]["no_model_deployed"],
+            "production_ready": ml_benchmark["governance"]["production_ready"],
+        },
         "sandbox_integration": {
             "mode": integration["mode"],
             "outbound_http_sent": integration["outbound_http_sent"],
@@ -138,6 +157,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     gaps = "\n".join(f"- {gap}" for gap in report["known_gaps"])
     integration = report["sandbox_integration"]
     matrix = report["scenario_matrix"]
+    ml_baseline = report["ml_baseline"]
     scan = report["public_safe_scan"]
     return f"""# Private Sandbox Readiness Gate
 
@@ -167,6 +187,16 @@ Data boundary: `{report['data_boundary']}`
 - Passed: `{matrix['passed']}`
 - Failed: `{matrix['failed']}`
 - Public-safe status: `{matrix['public_safe_status']}`
+
+## ML Baseline Benchmark
+
+- Benchmark ready: `{ml_baseline['benchmark_ready']}`
+- Policy count: `{ml_baseline['policy_count']}`
+- Best policy by MAE: `{ml_baseline['best_policy_by_mae']}`
+- Rules-first MAE hours: `{ml_baseline['rules_first_mae_hours']}`
+- Best policy MAE hours: `{ml_baseline['best_policy_mae_hours']}`
+- Public-safe status: `{ml_baseline['public_safe_status']}`
+- No model deployed: `{ml_baseline['no_model_deployed']}`
 
 ## Sandbox Integration
 

@@ -15,6 +15,7 @@ from apps.api.integration_evidence import build_sandbox_integration_evidence
 from apps.api.reporting import evaluate_rows, rate
 from apps.api.services import IncidentService
 from scripts.generate_readiness_gate import build_readiness_gate
+from scripts.run_ml_baseline_benchmark import build_ml_baseline_benchmark
 
 DEFAULT_DATASET = ROOT / "data" / "synthetic" / "closed_incidents.jsonl"
 
@@ -55,6 +56,10 @@ def build_pilot_report(
     action_distribution = Counter(action["recommendation"] for action in operator_summary["partner_actions"])
     sandbox_evidence = build_sandbox_integration_evidence(service)
     readiness_gate = build_readiness_gate()
+    ml_baseline = build_ml_baseline_benchmark(
+        rows=rows,
+        input_label=input_label,
+    )
 
     return {
         "report_type": "private-pilot-evidence-pack",
@@ -88,6 +93,7 @@ def build_pilot_report(
         "sandbox_integration_evidence": sandbox_evidence,
         "readiness_gate": readiness_gate,
         "scenario_matrix_evidence": readiness_gate["scenario_matrix"],
+        "ml_baseline_evidence": ml_baseline,
         "pilot_success_metrics": {
             "eta_mae_hours": product_metrics["eta_mae_hours"],
             "underestimation_rate": product_metrics["underestimation_rate"],
@@ -122,6 +128,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     sandbox_evidence = report["sandbox_integration_evidence"]
     readiness_gate = report["readiness_gate"]
     scenario_matrix = report["scenario_matrix_evidence"]
+    ml_baseline = report["ml_baseline_evidence"]
     flow_status = sandbox_evidence["flow_status"]
     retry_behavior = sandbox_evidence["retry_behavior"]
     gate_checks = "\n".join(
@@ -175,6 +182,14 @@ Flow coverage rate: `{sandbox_evidence['flow_coverage_rate']}`
 - Passed: `{scenario_matrix['passed']}`
 - Failed: `{scenario_matrix['failed']}`
 - Public-safe status: `{scenario_matrix['public_safe_status']}`
+
+## ML Baseline Evidence
+
+- Benchmark ready: `{ml_baseline['benchmark_ready']}`
+- Best policy by MAE: `{ml_baseline['benchmark_summary']['best_policy_by_mae']}`
+- Public-safe status: `{ml_baseline['public_safe_checks']['status']}`
+- No model deployed: `{ml_baseline['governance']['no_model_deployed']}`
+- Production ready: `{ml_baseline['governance']['production_ready']}`
 
 ## Pilot Success Metrics
 

@@ -23,6 +23,7 @@ Train a reproducible baseline from synthetic closed incidents:
 ```bash
 python scripts/train_eta_baseline.py
 python scripts/evaluate_product_metrics.py
+python scripts/run_ml_baseline_benchmark.py
 python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
 python scripts/run_pilot_scenario_matrix.py
@@ -36,14 +37,27 @@ The current baseline predicts restoration duration from the mean duration by `sc
 - `underestimation_rate`
 - trained group means
 
+## ML Baseline Benchmark
+
+`scripts/run_ml_baseline_benchmark.py` compares the current rules-first ETA policy against simple statistical baselines on a chronological synthetic holdout:
+
+- rules-first initial ETA
+- global mean restoration duration
+- mean duration by SCADA status
+- mean duration by partner class
+
+The benchmark reports ETA MAE, underestimation rate, overestimation rate, within-one-hour rate, prolonged-outage precision/recall/F1, and partner action distribution. It is intentionally benchmark-only: no model artifact is deployed, production readiness remains false, and the output stays public-safe.
+
+For details, see [ml-baseline-benchmark.md](ml-baseline-benchmark.md).
+
 ## Product Metrics To Add Next
 
 - ETA error by partner class
-- Timeout fallback rate
 - Underestimation rate for prolonged outages
 - Decision calibration by confidence band
-- Audit completeness and restoration ground-truth coverage
-- Prolonged-outage baseline recall
+- Timeout fallback quality by scenario family
+- Decision calibration by confidence band and partner action
+- Audit completeness and restoration ground-truth coverage by partner class
 
 These metrics turn the outage workflow into a data product rather than only a prototype API.
 
