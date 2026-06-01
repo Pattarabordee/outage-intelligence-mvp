@@ -10,7 +10,7 @@ Public-safe MVP for an event-driven outage intelligence workflow. The system acc
 
 - Portfolio-ready public demo
 - Public-safe synthetic data only
-- Tested workflow for create, revise, timeout, and restore
+- Tested workflow for create, revise, timeout, restore, idempotency, and audit trail
 
 ## Tech stack
 
@@ -107,6 +107,12 @@ That close-loop signal is important because it turns the MVP into more than a de
 - it enables ETA error analysis
 - it creates supervised-learning targets for future models
 
+Closed incidents can be exported for offline ML experiments:
+
+```bash
+python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
+```
+
 ## Public-safe design
 
 This repository is intentionally sanitized for public sharing and interview use.
@@ -147,6 +153,10 @@ Useful local endpoints:
 
 - API docs: `http://127.0.0.1:8000/docs`
 - Demo dashboard: `http://127.0.0.1:8000/demo/incidents`
+
+Optional runtime configuration:
+
+- `OUTAGE_DB_PATH`: SQLite database path for local runs
 
 ## Interview-friendly summary
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import sqlite3
-import tempfile
 from pathlib import Path
 from typing import Iterable
 
-DEFAULT_DB_PATH = Path(tempfile.gettempdir()) / "outage_intelligence_demo.db"
+from .config import settings
+
+DEFAULT_DB_PATH = settings.db_path
 
 
 SCHEMA_SQL = """
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     dispatch_decision TEXT NOT NULL,
     timeout_applied INTEGER NOT NULL DEFAULT 0,
     last_signal_at TEXT,
+    source_event_id TEXT,
     metadata_json TEXT NOT NULL DEFAULT '{}'
 );
 
@@ -40,9 +42,28 @@ CREATE TABLE IF NOT EXISTS signals (
     severity TEXT NOT NULL,
     predicted_eta_hours REAL NOT NULL,
     extracted_keywords_json TEXT NOT NULL,
+    observed_at TEXT,
+    source_signal_id TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY(incident_id) REFERENCES incidents(id)
 );
+
+CREATE TABLE IF NOT EXISTS incident_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    source TEXT NOT NULL,
+    previous_eta_hours REAL,
+    new_eta_hours REAL,
+    reason_code TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    confidence_band TEXT NOT NULL,
+    feature_snapshot_json TEXT NOT NULL,
+    observed_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(incident_id) REFERENCES incidents(id)
+);
+
 """
 
 
@@ -57,7 +78,30 @@ def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
 def init_db(db_path: str | Path | None = None) -> None:
     with get_connection(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
+        _ensure_column(conn, "incidents", "source_event_id", "TEXT")
+        _ensure_column(conn, "signals", "observed_at", "TEXT")
+        _ensure_column(conn, "signals", "source_signal_id", "TEXT")
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_source_event_id
+            ON incidents(source_event_id)
+            WHERE source_event_id IS NOT NULL
+            """
+        )
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_signals_source_signal_id
+            ON signals(source_signal_id)
+            WHERE source_signal_id IS NOT NULL
+            """
+        )
         conn.commit()
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def fetch_one(conn: sqlite3.Connection, sql: str, params: Iterable | None = None):

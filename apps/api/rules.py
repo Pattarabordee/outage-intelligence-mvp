@@ -24,6 +24,7 @@ FALLBACK_ETA_BY_SCADA = {
 
 TIMEOUT_WORST_CASE_HOURS = 8.0
 TIMEOUT_MINUTES = 120
+POLICY_VERSION = "rules-v1"
 
 
 @dataclass
@@ -82,3 +83,11 @@ def recommendation_from_eta(eta_hours: float) -> str:
     if eta_hours <= 5:
         return "MONITOR_AND_PREPARE"
     return "DISPATCH_BACKUP_IF_BATTERY_WINDOW_AT_RISK"
+
+
+def confidence_band(severity: str) -> str:
+    if severity in {"critical", "high", "resolved", "timeout_worst_case"}:
+        return "high"
+    if severity in {"medium", "low", "baseline"}:
+        return "medium"
+    return "low"

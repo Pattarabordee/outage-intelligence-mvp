@@ -3,11 +3,13 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 
-from .schemas import FieldSignalIn, ImmediateResponse, IncidentCreate, IncidentOut, IncidentWithSignals, RestoreIn, SignalOut
-from .services import IncidentService
+from .config import settings
+from .schemas import FieldSignalIn, ImmediateResponse, IncidentCreate, IncidentOut, IncidentWithSignals, RestoreIn
+from .services import IncidentService, StateConflictError
 
 
 def create_app(db_path: str | Path | None = None) -> FastAPI:
@@ -18,28 +20,68 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         yield
 
     app = FastAPI(
-        title="Outage Intelligence API MVP",
-        version="0.1.0",
+        title=settings.api_title,
+        version=settings.api_version,
         summary="Public-safe event-driven outage intelligence demo",
         lifespan=lifespan,
     )
     app.state.service = service
 
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(_: Request, exc: HTTPException):
+        code = "http_error"
+        if exc.status_code == 404:
+            code = "not_found"
+        elif exc.status_code == 409:
+            code = "state_conflict"
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": code, "message": str(exc.detail), "details": []}},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(_: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "validation_error",
+                    "message": "Request validation failed",
+                    "details": exc.errors(),
+                }
+            },
+        )
+
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok"}
 
-    @app.post("/api/v1/incidents", response_model=ImmediateResponse)
-    def create_incident(payload: IncidentCreate):
-        incident = app.state.service.create_incident(
+    def incident_payload(incident: dict) -> dict:
+        return {
+            "incident": incident,
+            "signals": app.state.service.list_signals(incident["id"]),
+            "events": app.state.service.list_events(incident["id"]),
+            "decision": app.state.service.decision_for_incident(incident),
+        }
+
+    @app.post("/api/v1/incidents", response_model=ImmediateResponse, status_code=201)
+    def create_incident(payload: IncidentCreate, response: Response):
+        incident, created = app.state.service.create_incident(
             client_name=payload.client_name,
             site_id=payload.site_id,
             province=payload.province,
             scada_status=payload.scada_status,
+            source_event_id=payload.source_event_id,
+            idempotency_key=payload.idempotency_key,
         )
+        if created:
+            response.headers["Location"] = f"/api/v1/incidents/{incident['id']}"
+        else:
+            response.status_code = 200
         return {
             "incident": incident,
             "recommendation": incident["dispatch_decision"],
+            "decision": app.state.service.decision_for_incident(incident),
             "message": f"Initial hold ETA is {incident['current_eta_hours']} hours.",
         }
 
@@ -49,8 +91,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             incident = app.state.service.get_incident(incident_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        signals = app.state.service.list_signals(incident_id)
-        return {"incident": incident, "signals": signals}
+        return incident_payload(incident)
 
     @app.post("/api/v1/incidents/{incident_id}/signals/field", response_model=IncidentWithSignals)
     def add_field_signal(incident_id: str, payload: FieldSignalIn):
@@ -59,11 +100,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 incident_id=incident_id,
                 channel=payload.channel,
                 raw_text=payload.raw_text,
+                observed_at=payload.observed_at,
+                source_signal_id=payload.source_signal_id,
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        signals = app.state.service.list_signals(incident_id)
-        return {"incident": incident, "signals": signals}
+        except StateConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return incident_payload(incident)
 
     @app.post("/api/v1/incidents/{incident_id}/timeout-check", response_model=IncidentOut)
     def apply_timeout(incident_id: str):

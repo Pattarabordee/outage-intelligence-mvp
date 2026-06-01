@@ -11,11 +11,15 @@ class IncidentCreate(BaseModel):
     site_id: str = Field(..., examples=["SITE-1001"])
     province: str = Field(..., examples=["North Zone"])
     scada_status: Literal["OUTAGE_CONFIRMED", "POWER_NORMAL", "UNKNOWN"] = "OUTAGE_CONFIRMED"
+    source_event_id: str | None = Field(default=None, examples=["SRC-EVENT-1001"])
+    idempotency_key: str | None = Field(default=None, examples=["client-event-1001"])
 
 
 class FieldSignalIn(BaseModel):
     channel: Literal["FIELD_APP", "VOICE_SUMMARY", "SCADA_NOTE"] = "FIELD_APP"
-    raw_text: str
+    raw_text: str = Field(..., min_length=1)
+    observed_at: datetime | None = None
+    source_signal_id: str | None = Field(default=None, examples=["SRC-SIGNAL-1001"])
 
 
 class RestoreIn(BaseModel):
@@ -41,6 +45,7 @@ class IncidentOut(BaseModel):
     dispatch_decision: str
     timeout_applied: bool
     last_signal_at: datetime | None = None
+    source_event_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -53,15 +58,54 @@ class SignalOut(BaseModel):
     severity: str
     predicted_eta_hours: float
     extracted_keywords: list[str]
+    observed_at: datetime | None = None
+    source_signal_id: str | None = None
     created_at: datetime
+
+
+class IncidentEventOut(BaseModel):
+    id: int
+    incident_id: str
+    event_type: str
+    source: str
+    previous_eta_hours: float | None = None
+    new_eta_hours: float | None = None
+    reason_code: str
+    policy_version: str
+    confidence_band: str
+    feature_snapshot: dict[str, Any] = Field(default_factory=dict)
+    observed_at: datetime | None = None
+    created_at: datetime
+
+
+class DecisionOut(BaseModel):
+    eta_hours: float
+    recommendation: str
+    confidence_band: str
+    reason_code: str
+    policy_version: str
+    prediction_time: datetime
 
 
 class ImmediateResponse(BaseModel):
     incident: IncidentOut
     recommendation: str
+    decision: DecisionOut
     message: str
 
 
 class IncidentWithSignals(BaseModel):
     incident: IncidentOut
     signals: list[SignalOut]
+    events: list[IncidentEventOut] = Field(default_factory=list)
+    decision: DecisionOut
+
+
+class ErrorDetail(BaseModel):
+    field: str | None = None
+    message: str
+    code: str
+
+
+class ErrorResponse(BaseModel):
+    error: dict[str, Any]

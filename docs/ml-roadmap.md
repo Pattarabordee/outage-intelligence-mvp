@@ -9,6 +9,22 @@ The MVP deliberately starts with rules because they are fast to build and easy t
 - dispatch recommendation quality
 - probability of prolonged outage
 
+## Dataset export
+
+Closed incidents can be exported as JSONL for offline analysis:
+
+```bash
+python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
+```
+
+Each row includes:
+- `prediction_time`
+- `actual_restoration_duration_hours`
+- `initial_eta_hours`
+- `eta_error_hours`
+- `rule_version`
+- `feature_snapshot`
+
 ## Candidate features
 
 Structured:

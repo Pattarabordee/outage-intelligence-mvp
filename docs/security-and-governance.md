@@ -18,3 +18,5 @@ This repository is public-safe by design.
 - hash or tokenize client-side identifiers when possible
 - keep explainable rules for high-impact operational decisions
 - audit every ETA revision and incident closure
+- use synthetic or de-identified source identifiers in public examples
+- export ML datasets through controlled scripts instead of exposing raw operational logs

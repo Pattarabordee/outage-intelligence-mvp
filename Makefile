@@ -1,4 +1,4 @@
-.PHONY: install run test demo seed
+.PHONY: install run test demo seed export
 
 install:
 	python -m pip install -r requirements.txt
@@ -14,3 +14,6 @@ demo:
 
 seed:
 	python scripts/seed_demo_data.py
+
+export:
+	python scripts/export_closed_dataset.py
