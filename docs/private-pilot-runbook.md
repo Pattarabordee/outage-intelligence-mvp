@@ -111,7 +111,18 @@ python scripts/run_shadow_evaluation_protocol.py --format markdown
 
 Use [pilot-data-contract.md](pilot-data-contract.md) to review the dataset shape and [shadow-evaluation-protocol.md](shadow-evaluation-protocol.md) to explain how ETA policy quality can be measured without affecting partner-facing operations.
 
-## 9. Webhook Retry Discussion
+## 9. Partner Pilot Onboarding Pack
+
+Generate the onboarding and governance pack:
+
+```bash
+python scripts/generate_partner_pilot_pack.py
+python scripts/generate_partner_pilot_pack.py --format markdown
+```
+
+Use [partner-pilot-onboarding.md](partner-pilot-onboarding.md), [private-pilot-governance.md](private-pilot-governance.md), and [pilot-risk-register.md](pilot-risk-register.md) to align scope, owners, governance boundaries, go/no-go criteria, and production gaps before any private data is introduced.
+
+## 10. Webhook Retry Discussion
 
 The prototype records local outbox events instead of sending HTTP callbacks. This keeps the public repo safe while demonstrating retry and deduplication design.
 
@@ -123,7 +134,7 @@ Discuss:
 - future receiver-side verification for a private sandbox
 - why no live network target is stored in the repository
 
-## 10. Evaluation And ML-Readiness Discussion
+## 11. Evaluation And ML-Readiness Discussion
 
 Generate a pilot evidence report:
 
@@ -147,7 +158,7 @@ Use the report to connect product behavior to measurable pilot outcomes:
 - ML baseline evidence
 - shadow evaluation evidence
 
-## 11. Production Gaps Before Live Use
+## 12. Production Gaps Before Live Use
 
 The prototype is ready for pilot discussion, not live production use.
 

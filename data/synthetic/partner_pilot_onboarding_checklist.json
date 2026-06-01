@@ -1,0 +1,240 @@
+{
+  "version": "partner-pilot-onboarding-v1",
+  "data_boundary": "synthetic-public-safe",
+  "pilot_scope": {
+    "purpose": "Prepare a private sandbox discussion for utility-to-enterprise outage intelligence workflows.",
+    "target_users": [
+      "utility operations lead",
+      "enterprise account lead",
+      "partner NOC lead",
+      "pilot governance reviewer"
+    ],
+    "non_goals": [
+      "No production launch approval",
+      "No live partner dispatch",
+      "No production decision automation",
+      "No production data ingestion"
+    ]
+  },
+  "checklist": [
+    {
+      "section": "pilot_scope",
+      "items": [
+        {
+          "id": "PILOT-SCOPE-001",
+          "name": "Pilot objective and partner class are defined",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "The repo frames the prototype around enterprise outage ETA, partner action, auditability, timeout fallback, and closed-loop evaluation."
+        },
+        {
+          "id": "PILOT-SCOPE-002",
+          "name": "Out-of-scope production claims are explicit",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "Docs state that this is a public-safe prototype and not a production deployment."
+        }
+      ]
+    },
+    {
+      "section": "partner_inputs",
+      "items": [
+        {
+          "id": "PARTNER-INPUT-001",
+          "name": "Partner class and synthetic site scope are agreed",
+          "required_for_private_sandbox": true,
+          "status": "needs_private_pilot_input",
+          "evidence": "Current examples use synthetic partner classes and site prefixes only."
+        },
+        {
+          "id": "PARTNER-INPUT-002",
+          "name": "Pilot contact path and escalation labels are agreed",
+          "required_for_private_sandbox": false,
+          "status": "needs_private_pilot_input",
+          "evidence": "The prototype stores public-safe contact labels, not private contact details."
+        }
+      ]
+    },
+    {
+      "section": "security_and_governance",
+      "items": [
+        {
+          "id": "GOV-001",
+          "name": "Synthetic data boundary is maintained",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "Public-safe scan and generated reports use synthetic identifiers only."
+        },
+        {
+          "id": "GOV-002",
+          "name": "Private authentication material is excluded from public outputs",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "Reports omit private headers, network targets, and raw operational text."
+        },
+        {
+          "id": "GOV-003",
+          "name": "Retention and de-identification policy is reviewed before live use",
+          "required_for_private_sandbox": true,
+          "status": "production_gap",
+          "evidence": "A private implementation needs approved data handling before operational data is used."
+        }
+      ]
+    },
+    {
+      "section": "technical_readiness",
+      "items": [
+        {
+          "id": "TECH-001",
+          "name": "Sandbox flow proves idempotent incident and signal handling",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "run_partner_sandbox_flow.py covers duplicate event and duplicate field signal behavior."
+        },
+        {
+          "id": "TECH-002",
+          "name": "Scenario matrix covers core pilot risk cases",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "run_pilot_scenario_matrix.py covers short outage, prolonged outage, timeout, duplicate, retry, restore, and scope-control cases."
+        },
+        {
+          "id": "TECH-003",
+          "name": "Readiness gate summarizes go/no-go evidence",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "generate_readiness_gate.py combines public-safe scan, sandbox flow, scenario matrix, ML benchmark, and shadow evaluation evidence."
+        }
+      ]
+    },
+    {
+      "section": "operating_model",
+      "items": [
+        {
+          "id": "OPS-001",
+          "name": "Utility and partner owners are assigned for pilot review",
+          "required_for_private_sandbox": true,
+          "status": "needs_private_pilot_input",
+          "evidence": "The public repo provides role labels only; named people are intentionally excluded."
+        },
+        {
+          "id": "OPS-002",
+          "name": "Operator handoff and review cadence are agreed",
+          "required_for_private_sandbox": false,
+          "status": "needs_private_pilot_input",
+          "evidence": "The runbook proposes executive and operator walkthroughs but does not define a live operating calendar."
+        }
+      ]
+    },
+    {
+      "section": "success_metrics",
+      "items": [
+        {
+          "id": "METRIC-001",
+          "name": "Pilot metrics are defined",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "Pilot success metrics include ETA error, underestimation rate, timeout fallback rate, delivery attempt rate, audit completeness, and ground-truth coverage."
+        },
+        {
+          "id": "METRIC-002",
+          "name": "Shadow evaluation is benchmark-only",
+          "required_for_private_sandbox": true,
+          "status": "ready_for_discussion",
+          "evidence": "Shadow evaluation compares ETA policies offline and does not change partner-facing decisions."
+        }
+      ]
+    }
+  ],
+  "raci": [
+    {
+      "activity": "Pilot scope approval",
+      "utility_owner": "utility product owner",
+      "partner_owner": "partner operations sponsor",
+      "shared_owner": "pilot steering group",
+      "notes": "Confirm private sandbox objectives and non-goals before connecting any private system."
+    },
+    {
+      "activity": "Scenario walkthrough",
+      "utility_owner": "utility operations lead",
+      "partner_owner": "partner NOC lead",
+      "shared_owner": "pilot working group",
+      "notes": "Review incident, ETA revision, timeout, local retry, restoration, and report artifacts."
+    },
+    {
+      "activity": "Data governance review",
+      "utility_owner": "utility governance reviewer",
+      "partner_owner": "partner governance reviewer",
+      "shared_owner": "pilot steering group",
+      "notes": "Approve data minimization, retention, access, and de-identification rules before operational data is used."
+    },
+    {
+      "activity": "Go/no-go decision",
+      "utility_owner": "utility pilot sponsor",
+      "partner_owner": "partner pilot sponsor",
+      "shared_owner": "pilot steering group",
+      "notes": "Use readiness gate, scenario matrix, pilot report, and risk register as decision evidence."
+    }
+  ],
+  "risk_register": [
+    {
+      "id": "RISK-001",
+      "area": "Security",
+      "risk": "Sandbox authentication is suitable for discussion but not enough for live partner access.",
+      "impact": "A live pilot would require stronger authorization and operational controls.",
+      "mitigation": "Keep this repo local and public-safe; implement production-grade auth in a private service.",
+      "pilot_status": "known_gap",
+      "production_gate": "approved partner authorization policy"
+    },
+    {
+      "id": "RISK-002",
+      "area": "Tenant Boundary",
+      "risk": "SQLite and synthetic site prefixes are not a production tenant isolation model.",
+      "impact": "Private pilots need enforced partner-level boundaries and audit review.",
+      "mitigation": "Use managed storage, migration policy, and partner-scoped access checks before live use.",
+      "pilot_status": "known_gap",
+      "production_gate": "managed database with tenant policy"
+    },
+    {
+      "id": "RISK-003",
+      "area": "Delivery",
+      "risk": "Webhook behavior is modeled through a local outbox only.",
+      "impact": "Delivery reliability cannot be certified until a private delivery worker is tested.",
+      "mitigation": "Treat retry evidence as sandbox proof; add private receiver verification before live pilot.",
+      "pilot_status": "ready_for_discussion",
+      "production_gate": "managed delivery worker and receiver verification"
+    },
+    {
+      "id": "RISK-004",
+      "area": "Evaluation",
+      "risk": "ML and shadow evaluation metrics are based on synthetic rows.",
+      "impact": "Metric direction is useful for discussion but not a production performance claim.",
+      "mitigation": "Run shadow evaluation on governed pilot data before changing partner-facing policy.",
+      "pilot_status": "ready_for_discussion",
+      "production_gate": "approved shadow evaluation on governed data"
+    },
+    {
+      "id": "RISK-005",
+      "area": "Operations",
+      "risk": "Runbooks are pilot discussion artifacts, not live incident procedures.",
+      "impact": "Operational ownership and escalation paths remain undefined for live use.",
+      "mitigation": "Assign utility and partner owners during private pilot planning.",
+      "pilot_status": "needs_private_pilot_input",
+      "production_gate": "approved live operating model"
+    }
+  ],
+  "go_criteria": [
+    "Synthetic sandbox flow passes from a clean checkout.",
+    "Readiness gate returns ready_for_private_sandbox_discussion.",
+    "Scenario matrix has no failed synthetic scenarios.",
+    "Shadow evaluation validates the pilot data contract.",
+    "Risk register and production gaps are visible in the pilot pack."
+  ],
+  "no_go_criteria": [
+    "Generated reports expose private auth material or network delivery targets.",
+    "Sandbox flow cannot prove duplicate handling.",
+    "Timeout fallback or restoration closure is missing from evidence.",
+    "Outputs imply production readiness.",
+    "Governance owners are not assigned before any private data is used."
+  ]
+}
