@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 from apps.api.integration_evidence import build_sandbox_integration_evidence
 from apps.api.reporting import evaluate_rows, rate
 from apps.api.services import IncidentService
+from scripts.generate_readiness_gate import build_readiness_gate
 
 DEFAULT_DATASET = ROOT / "data" / "synthetic" / "closed_incidents.jsonl"
 
@@ -53,6 +54,7 @@ def build_pilot_report(
     attempted_count = len([delivery for delivery in deliveries if delivery["attempt_count"] > 0])
     action_distribution = Counter(action["recommendation"] for action in operator_summary["partner_actions"])
     sandbox_evidence = build_sandbox_integration_evidence(service)
+    readiness_gate = build_readiness_gate()
 
     return {
         "report_type": "private-pilot-evidence-pack",
@@ -84,6 +86,7 @@ def build_pilot_report(
             },
         },
         "sandbox_integration_evidence": sandbox_evidence,
+        "readiness_gate": readiness_gate,
         "pilot_success_metrics": {
             "eta_mae_hours": product_metrics["eta_mae_hours"],
             "underestimation_rate": product_metrics["underestimation_rate"],
@@ -116,8 +119,12 @@ def render_markdown(report: dict[str, Any]) -> str:
     metrics = report["pilot_success_metrics"]
     evidence = report["workflow_evidence"]
     sandbox_evidence = report["sandbox_integration_evidence"]
+    readiness_gate = report["readiness_gate"]
     flow_status = sandbox_evidence["flow_status"]
     retry_behavior = sandbox_evidence["retry_behavior"]
+    gate_checks = "\n".join(
+        f"- {check['name']}: `{check['status']}`" for check in readiness_gate["checks"]
+    )
     gaps = "\n".join(f"- {gap}" for gap in report["production_gaps"])
     controls = "\n".join(f"- {control}" for control in report["public_safe_controls"])
     flow_items = "\n".join(f"- {name}: `{covered}`" for name, covered in flow_status.items())
@@ -150,6 +157,15 @@ Flow coverage rate: `{sandbox_evidence['flow_coverage_rate']}`
 - Attempted records: `{retry_behavior['attempted_records']}`
 - Delivered records: `{retry_behavior['delivered_records']}`
 - Attempt records: `{retry_behavior['attempt_records']}`
+
+## Readiness Gate
+
+- Prototype ready: `{readiness_gate['readiness']['prototype_ready']}`
+- Sandbox pilot ready: `{readiness_gate['readiness']['sandbox_pilot_ready']}`
+- Production ready: `{readiness_gate['readiness']['production_ready']}`
+- Gate decision: `{readiness_gate['readiness']['gate_decision']}`
+
+{gate_checks}
 
 ## Pilot Success Metrics
 

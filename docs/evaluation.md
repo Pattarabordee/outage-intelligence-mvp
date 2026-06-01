@@ -23,7 +23,9 @@ Train a reproducible baseline from synthetic closed incidents:
 ```bash
 python scripts/train_eta_baseline.py
 python scripts/evaluate_product_metrics.py
+python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
+python scripts/generate_readiness_gate.py
 python scripts/generate_pilot_report.py
 ```
 
@@ -53,3 +55,5 @@ python scripts/generate_pilot_report.py --format markdown
 ```
 
 The report includes `sandbox_integration_evidence`, which summarizes whether the local sandbox has exercised incident creation, ETA revision, timeout fallback, restoration closure, duplicate-event handling, and retry behavior.
+
+It also includes `readiness_gate`, which separates private sandbox readiness from production readiness.

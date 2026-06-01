@@ -15,6 +15,7 @@ This document defines the metrics used to judge whether the private pilot workfl
 | Ground-truth coverage | Confirms restored cases are usable for evaluation. | Closed incident dataset |
 | Partner action distribution | Shows how often the system recommends waiting, preparing, or activating backup. | Operator console summary |
 | Sandbox integration coverage | Confirms the local flow exercised create, revise, timeout, restore, duplicate handling, and retry behavior. | Partner sandbox flow |
+| Readiness gate status | Separates private sandbox readiness from production readiness. | Readiness gate report |
 
 ## Pilot Targets
 
@@ -38,7 +39,9 @@ python scripts/generate_pilot_report.py --format markdown
 Run the partner sandbox proof before the report when you want integration evidence:
 
 ```bash
+python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
+python scripts/generate_readiness_gate.py
 ```
 
 The report intentionally excludes private delivery headers, raw field text, production topology, auth material, and partner network targets.

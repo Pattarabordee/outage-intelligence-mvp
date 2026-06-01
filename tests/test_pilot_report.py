@@ -56,6 +56,9 @@ def test_private_pilot_report_shape_is_public_safe(client):
     assert "sandbox_integration_evidence" in report
     assert report["sandbox_integration_evidence"]["mode"] == "local-outbox-only"
     assert report["sandbox_integration_evidence"]["outbound_http_sent"] is False
+    assert "readiness_gate" in report
+    assert report["readiness_gate"]["readiness"]["sandbox_pilot_ready"] is True
+    assert report["readiness_gate"]["readiness"]["production_ready"] is False
     assert report["production_gaps"]
     for term in SENSITIVE_REPORT_TERMS:
         assert term not in report_text
@@ -82,6 +85,7 @@ def test_private_pilot_markdown_report_is_actionable_and_public_safe(client):
 
     assert "# Private Pilot Evidence Report" in markdown
     assert "Sandbox Integration Evidence" in markdown
+    assert "Readiness Gate" in markdown
     assert "Pilot Success Metrics" in markdown
     assert "Production Gaps" in markdown
     for term in SENSITIVE_REPORT_TERMS:

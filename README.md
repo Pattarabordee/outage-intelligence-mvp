@@ -20,6 +20,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Operator pilot console and read-only summary feed for NOC-style workflow review
 - Private pilot evidence report for workflow, risk, webhook, and evaluation discussion
 - Repeatable partner sandbox integration flow for idempotency, retry, timeout, and restoration proof
+- Private sandbox readiness gate and public-safe scan for pilot go/no-go discussion
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -193,11 +194,11 @@ More detail is available in [docs/security-and-governance.md](docs/security-and-
 
 - Enterprise API contract: partner documentation, idempotency policy, standard errors, auth boundary, and audit history
 - Operational decision layer: clearer policy explanations, confidence bands, and partner action semantics
-- Partner readiness: sandbox integration playbook, webhook/API guide, data-minimization boundary, and synthetic payload catalog
+- Partner readiness: sandbox integration playbook, acceptance criteria, readiness gate, webhook/API guide, and data-minimization boundary
 - Demo surfaces: executive value walkthrough and operator pilot console for active incidents, timeout risk, webhook queue, and closed-loop coverage
 - ML data product: ETA accuracy monitoring, prolonged-outage risk baseline, and partner-level performance reporting
 
-See [docs/partner-integration.md](docs/partner-integration.md), [docs/partner-sandbox-playbook.md](docs/partner-sandbox-playbook.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
+See [docs/partner-integration.md](docs/partner-integration.md), [docs/partner-sandbox-playbook.md](docs/partner-sandbox-playbook.md), [docs/private-sandbox-acceptance-criteria.md](docs/private-sandbox-acceptance-criteria.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), and [docs/evaluation.md](docs/evaluation.md).
 
 For pilot discussion artifacts, see [docs/private-pilot-runbook.md](docs/private-pilot-runbook.md) and [docs/pilot-success-metrics.md](docs/pilot-success-metrics.md).
 
@@ -235,7 +236,9 @@ Quality checks:
 python scripts/seed_demo_data.py
 pytest -q
 pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
+python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
+python scripts/generate_readiness_gate.py
 python scripts/evaluate_product_metrics.py
 python scripts/generate_pilot_report.py
 ```

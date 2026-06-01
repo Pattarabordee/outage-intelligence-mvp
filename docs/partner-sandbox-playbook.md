@@ -58,6 +58,8 @@ Use the JSON output to walk through the partner operating story:
 Generate the pilot report after a seed run or a sandbox flow written to a named local database:
 
 ```bash
+python scripts/public_safe_scan.py
+python scripts/generate_readiness_gate.py
 python scripts/generate_pilot_report.py
 python scripts/generate_pilot_report.py --format markdown
 ```
@@ -70,6 +72,8 @@ The report now includes `sandbox_integration_evidence`, which summarizes:
 - idempotency controls
 - closed-loop report readiness
 - private pilot gaps before live use
+
+The report also includes `readiness_gate`, which summarizes whether the sandbox is ready for private pilot discussion while keeping production readiness explicitly false.
 
 ## 5. Discussion Boundary
 
