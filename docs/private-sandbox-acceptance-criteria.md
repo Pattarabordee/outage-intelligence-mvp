@@ -19,6 +19,7 @@ The repository can meet that gate when:
 - pilot data contract and shadow evaluation protocol are available for metric governance discussion
 - pilot reports include workflow, metric, sandbox integration, readiness, scenario, ML benchmark, and shadow evaluation evidence
 - partner pilot onboarding pack includes checklist, governance boundary, risk register, and go/no-go evidence
+- private pilot implementation blueprint separates public prototype, private sandbox, private pilot, and production gates
 
 ## Required Checks
 
@@ -32,6 +33,7 @@ python scripts/run_ml_baseline_benchmark.py
 python scripts/run_shadow_evaluation_protocol.py
 python scripts/generate_readiness_gate.py
 python scripts/generate_partner_pilot_pack.py
+python scripts/generate_private_pilot_blueprint.py
 python scripts/generate_pilot_report.py --format markdown
 ```
 
@@ -49,6 +51,8 @@ Expected result:
 - `shadow_evaluation.required_field_coverage` is `1.0`
 - `pack_ready` is `true`
 - `readiness_decision.production_ready` is `false`
+- `blueprint_ready` is `true`
+- `implementation_decision.production_ready` is `false`
 
 ## Go Criteria
 
@@ -60,6 +64,7 @@ Use the prototype for private sandbox discussion when:
 - ML baseline benchmark compares the rules-first ETA policy against simple statistical baselines
 - shadow evaluation validates the pilot data contract on a larger synthetic dataset
 - partner pilot onboarding pack makes owners, governance inputs, risks, and production gaps explicit
+- private pilot implementation blueprint identifies required private workstreams and transition gates
 - generated reports exclude private delivery headers, raw field text, network targets, and operational topology
 - known production gaps are visible and not hidden as "ready"
 
@@ -74,6 +79,7 @@ Do not treat the prototype as production-ready if any of these are true:
 - ML benchmark output is missing, below minimum rows, or implies deployed model behavior
 - shadow evaluation output is missing, fails contract coverage, or implies operational automation
 - partner pilot pack is missing, hides governance gaps, or lacks go/no-go criteria
+- implementation blueprint implies private pilot or production readiness without private controls
 - reports imply live partner integration or operational deployment
 - generated output includes real partner data, network targets, raw operational text, or private auth material
 

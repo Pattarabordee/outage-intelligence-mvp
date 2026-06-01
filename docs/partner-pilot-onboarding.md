@@ -31,6 +31,7 @@ The pilot onboarding capability helps a utility team and an enterprise partner a
 - Readiness gate: `python scripts/generate_readiness_gate.py`
 - Pilot evidence report: `python scripts/generate_pilot_report.py --format markdown`
 - Partner pilot pack: `python scripts/generate_partner_pilot_pack.py --format markdown`
+- Private pilot blueprint: `python scripts/generate_private_pilot_blueprint.py --format markdown`
 
 ## Required Partner Inputs
 
@@ -72,4 +73,4 @@ Use a simple RACI structure:
 
 ## Handoff
 
-If the pilot pack is accepted, the next engineering lane should be a private implementation plan for partner authorization, tenant isolation, managed storage, delivery worker behavior, live observability, and data governance controls.
+If the pilot pack is accepted, the next engineering lane should use [private-pilot-implementation-blueprint.md](private-pilot-implementation-blueprint.md) to plan partner authorization, tenant isolation, managed storage, delivery worker behavior, live observability, and data governance controls.

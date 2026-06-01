@@ -122,7 +122,18 @@ python scripts/generate_partner_pilot_pack.py --format markdown
 
 Use [partner-pilot-onboarding.md](partner-pilot-onboarding.md), [private-pilot-governance.md](private-pilot-governance.md), and [pilot-risk-register.md](pilot-risk-register.md) to align scope, owners, governance boundaries, go/no-go criteria, and production gaps before any private data is introduced.
 
-## 10. Webhook Retry Discussion
+## 10. Private Pilot Implementation Blueprint
+
+Generate the implementation blueprint:
+
+```bash
+python scripts/generate_private_pilot_blueprint.py
+python scripts/generate_private_pilot_blueprint.py --format markdown
+```
+
+Use [private-pilot-implementation-blueprint.md](private-pilot-implementation-blueprint.md) and [private-pilot-transition-gates.md](private-pilot-transition-gates.md) to discuss what must be built privately before a controlled partner pilot: access boundary, tenant model, delivery worker, observability, data governance, shadow evaluation, and release management.
+
+## 11. Webhook Retry Discussion
 
 The prototype records local outbox events instead of sending HTTP callbacks. This keeps the public repo safe while demonstrating retry and deduplication design.
 
@@ -134,7 +145,7 @@ Discuss:
 - future receiver-side verification for a private sandbox
 - why no live network target is stored in the repository
 
-## 11. Evaluation And ML-Readiness Discussion
+## 12. Evaluation And ML-Readiness Discussion
 
 Generate a pilot evidence report:
 
@@ -158,7 +169,7 @@ Use the report to connect product behavior to measurable pilot outcomes:
 - ML baseline evidence
 - shadow evaluation evidence
 
-## 12. Production Gaps Before Live Use
+## 13. Production Gaps Before Live Use
 
 The prototype is ready for pilot discussion, not live production use.
 

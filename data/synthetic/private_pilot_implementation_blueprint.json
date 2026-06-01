@@ -1,0 +1,250 @@
+{
+  "version": "private-pilot-blueprint-v1",
+  "data_boundary": "synthetic-public-safe",
+  "capability": {
+    "name": "Private Pilot Implementation Blueprint",
+    "summary": "Define the private implementation path required to move from a public-safe sandbox prototype to a governed utility-to-enterprise outage intelligence pilot.",
+    "primary_users": [
+      "utility product owner",
+      "utility operations lead",
+      "partner NOC lead",
+      "security reviewer",
+      "data governance reviewer",
+      "platform engineering lead"
+    ],
+    "outcome": "A pilot working group can decide what must be implemented privately before partner-facing sandbox traffic or governed operational data is introduced."
+  },
+  "non_goals": [
+    "No production launch approval",
+    "No live partner network dispatch",
+    "No production decision automation",
+    "No private data ingestion in this public repository",
+    "No replacement for a formal security or regulatory review"
+  ],
+  "maturity_stages": [
+    {
+      "stage": "public_prototype",
+      "status": "implemented_here",
+      "purpose": "Demonstrate workflow, API shape, evidence reports, and public-safe pilot artifacts.",
+      "exit_gate": "Readiness gate, scenario matrix, onboarding pack, and public-safe scan pass."
+    },
+    {
+      "stage": "private_sandbox",
+      "status": "discussion_ready",
+      "purpose": "Review workflow and integration behavior with synthetic or governed sandbox inputs in a private environment.",
+      "exit_gate": "Owners, partner scope, data boundary, and go/no-go criteria are accepted by the pilot steering group."
+    },
+    {
+      "stage": "private_pilot",
+      "status": "requires_private_build",
+      "purpose": "Run controlled partner-facing pilot workflows with approved access, tenant boundary, delivery worker, observability, and governance controls.",
+      "exit_gate": "Pilot metrics, security controls, incident runbooks, and data handling rules are approved."
+    },
+    {
+      "stage": "production",
+      "status": "not_ready",
+      "purpose": "Operate as a live service with production ownership, service objectives, compliance controls, and release management.",
+      "exit_gate": "Separate production readiness review passes with live operations, rollback, and support ownership."
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "WS-001",
+      "name": "Partner Access Boundary",
+      "owner_role": "security reviewer",
+      "current_public_evidence": "Sandbox partner profile and lightweight local auth boundary are documented and tested.",
+      "private_pilot_requirement": "Implement partner-scoped access policy, key rotation process, replay window, rate limit, and audit review for partner actions.",
+      "production_gate": "Central partner registry and approved authorization model."
+    },
+    {
+      "id": "WS-002",
+      "name": "Tenant And Site Scope Model",
+      "owner_role": "platform engineering lead",
+      "current_public_evidence": "Synthetic site prefixes and partner profiles prove the boundary concept locally.",
+      "private_pilot_requirement": "Move from synthetic prefixes to a governed partner-site authorization source with audited access decisions.",
+      "production_gate": "Managed tenant policy with operational review and migration path."
+    },
+    {
+      "id": "WS-003",
+      "name": "Partner-Facing API Contract",
+      "owner_role": "utility product owner",
+      "current_public_evidence": "Versioned API routes, idempotency fields, standard errors, and decision objects are implemented.",
+      "private_pilot_requirement": "Freeze pilot request and response fields, error taxonomy, idempotency policy, and compatibility rules.",
+      "production_gate": "Versioned contract governance and change-control process."
+    },
+    {
+      "id": "WS-004",
+      "name": "Delivery Worker And Retry Controls",
+      "owner_role": "platform engineering lead",
+      "current_public_evidence": "Local outbox and retry attempts demonstrate retry-safe behavior without network dispatch.",
+      "private_pilot_requirement": "Implement managed delivery worker, receiver verification, retry schedule, dead-letter handling, and delivery audit.",
+      "production_gate": "Operational delivery service with alerting, replay controls, and support ownership."
+    },
+    {
+      "id": "WS-005",
+      "name": "Operational Observability",
+      "owner_role": "utility operations lead",
+      "current_public_evidence": "Operator console, structured lifecycle events, readiness gate, and evidence reports exist.",
+      "private_pilot_requirement": "Define metrics, logs, alerts, dashboards, owner rotation, and incident review cadence for the pilot.",
+      "production_gate": "Live alert routing, service objectives, and incident response runbooks."
+    },
+    {
+      "id": "WS-006",
+      "name": "Data Governance And Retention",
+      "owner_role": "data governance reviewer",
+      "current_public_evidence": "Public docs define synthetic boundary, minimization, retention review, and de-identification expectations.",
+      "private_pilot_requirement": "Approve retained fields, retention period, export controls, de-identification method, and review workflow before operational data is used.",
+      "production_gate": "Approved data governance policy and recurring audit."
+    },
+    {
+      "id": "WS-007",
+      "name": "Evaluation And Shadow Policy",
+      "owner_role": "utility product owner",
+      "current_public_evidence": "ML baseline benchmark and shadow evaluation protocol run on synthetic datasets.",
+      "private_pilot_requirement": "Run side-by-side shadow evaluation on governed pilot rows without changing partner-facing policy.",
+      "production_gate": "Measured promotion criteria, bias review, and operator sign-off for policy changes."
+    },
+    {
+      "id": "WS-008",
+      "name": "Deployment And Release Management",
+      "owner_role": "platform engineering lead",
+      "current_public_evidence": "Docker, health checks, tests, coverage gate, and local readiness commands are available.",
+      "private_pilot_requirement": "Create private environment separation, migration process, rollback path, release checklist, and owner approval flow.",
+      "production_gate": "Release automation, rollback verification, environment controls, and support handoff."
+    }
+  ],
+  "api_contract_boundary": {
+    "freeze_for_private_pilot": [
+      "incident create request and response shape",
+      "field signal request and response shape",
+      "timeout check behavior",
+      "restoration closure behavior",
+      "webhook outbox event taxonomy",
+      "standard error response shape",
+      "decision object fields"
+    ],
+    "private_extensions": [
+      "partner authorization context",
+      "receiver verification metadata",
+      "delivery retry policy",
+      "operator audit access",
+      "data export approval state"
+    ],
+    "non_public_fields": [
+      "private network delivery target",
+      "private auth material",
+      "operational topology",
+      "raw field transcript",
+      "named partner operational data"
+    ]
+  },
+  "security_model": {
+    "trust_boundaries": [
+      "partner-facing API",
+      "operator console",
+      "delivery worker",
+      "audit store",
+      "evaluation export"
+    ],
+    "required_private_controls": [
+      "partner-scoped authorization",
+      "site-scope enforcement",
+      "request replay window",
+      "rate-limit policy",
+      "private auth material rotation",
+      "audit access review",
+      "output redaction review"
+    ],
+    "public_repo_controls": [
+      "synthetic data only",
+      "local outbox only",
+      "public-safe scan",
+      "no live partner dispatch",
+      "no production topology"
+    ]
+  },
+  "observability_model": {
+    "metrics": [
+      "incident_opened_count",
+      "eta_revised_count",
+      "timeout_fallback_rate",
+      "restoration_ground_truth_coverage",
+      "delivery_attempt_rate",
+      "delivery_success_rate",
+      "duplicate_event_rate",
+      "state_conflict_rate",
+      "underestimation_rate",
+      "pilot_pack_ready"
+    ],
+    "alerts": [
+      "delivery retry backlog exceeds pilot threshold",
+      "timeout fallback rate exceeds review threshold",
+      "audit completeness drops below pilot threshold",
+      "public-safe or redaction check fails",
+      "partner scope denial spike requires review"
+    ],
+    "review_cadence": [
+      "daily pilot operations review",
+      "weekly steering group review",
+      "post-incident evidence review",
+      "pre-release readiness review"
+    ]
+  },
+  "deployment_plan": {
+    "preferred_pilot_strategy": "private_sandbox_then_controlled_private_pilot",
+    "environment_separation": [
+      "public reference implementation",
+      "private sandbox",
+      "private pilot",
+      "production"
+    ],
+    "release_gates": [
+      "tests and coverage pass",
+      "public-safe scan passes",
+      "readiness gate passes",
+      "partner onboarding pack accepted",
+      "security and governance review accepted",
+      "rollback path verified"
+    ],
+    "rollback_expectations": [
+      "disable partner-facing writes",
+      "pause delivery worker",
+      "preserve audit events",
+      "export pilot evidence for review",
+      "restore last approved release"
+    ]
+  },
+  "open_decisions": [
+    {
+      "id": "OPEN-001",
+      "decision": "Which partner class and synthetic site scope should be used for the first private sandbox?",
+      "owner_role": "pilot steering group"
+    },
+    {
+      "id": "OPEN-002",
+      "decision": "Which partner authorization source will be authoritative in the private pilot?",
+      "owner_role": "security reviewer"
+    },
+    {
+      "id": "OPEN-003",
+      "decision": "Which operational fields can be retained for evaluation and for how long?",
+      "owner_role": "data governance reviewer"
+    },
+    {
+      "id": "OPEN-004",
+      "decision": "Which service objectives and alert thresholds define pilot success?",
+      "owner_role": "utility operations lead"
+    }
+  ],
+  "acceptance_thresholds": {
+    "minimum_workstreams": 8,
+    "required_maturity_stages": [
+      "public_prototype",
+      "private_sandbox",
+      "private_pilot",
+      "production"
+    ],
+    "required_private_controls": 7,
+    "required_release_gates": 6
+  }
+}

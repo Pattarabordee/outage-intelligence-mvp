@@ -21,6 +21,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - ML baseline benchmark comparing rules-first ETA against simple statistical baselines
 - Pilot data contract and shadow evaluation protocol for measuring ETA quality without operational impact
 - Partner pilot onboarding and governance pack with checklist, RACI, risk register, and go/no-go criteria
+- Private pilot implementation blueprint covering access boundary, tenant model, delivery worker, observability, governance, and release gates
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -47,7 +48,8 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 6. Run the shadow evaluation protocol to validate the pilot data contract and benchmark on a larger synthetic dataset.
 7. Run the readiness gate and review acceptance criteria before any private sandbox discussion.
 8. Generate the partner pilot onboarding pack to align owners, governance boundaries, risks, and go/no-go criteria.
-9. Generate the private pilot evidence report and agree on success metrics.
-10. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
-11. Run side-by-side evaluation against historical synthetic or de-identified incidents.
-12. Promote only explainable, measured policy changes into operational workflows.
+9. Generate the private pilot implementation blueprint to define the private build path and transition gates.
+10. Generate the private pilot evidence report and agree on success metrics.
+11. Build a private pilot service with authentication, tenant boundaries, and partner sandbox payloads.
+12. Run side-by-side evaluation against historical synthetic or de-identified incidents.
+13. Promote only explainable, measured policy changes into operational workflows.
