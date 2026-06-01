@@ -15,7 +15,8 @@ This guide describes how an enterprise partner system could integrate with the o
 2. API creates an incident and returns ETA, recommendation, partner action, confidence, and policy explanation.
 3. Utility field signals revise the ETA through `/signals/field`.
 4. Timeout check applies a deterministic fallback if evidence is missing.
-5. Restoration closes the incident and preserves ground truth for analytics.
+5. Webhook delivery records are queued locally for partner notification review.
+6. Restoration closes the incident and preserves ground truth for analytics.
 
 ## Synthetic Partner Payload
 
@@ -36,6 +37,7 @@ This guide describes how an enterprise partner system could integrate with the o
 - `source_signal_id` prevents duplicate signal ingestion.
 - Timeout checks and restore operations are safe to retry.
 - `source_event_id` is unique within a partner boundary.
+- Webhook notifications use `event_id` as the partner-side deduplication key.
 
 ## Sandbox Authentication
 
@@ -47,6 +49,16 @@ When enabled, clients must send:
 - `X-API-Key`
 
 The request `partner_id`, when present, must match `X-Partner-Id`.
+
+## Webhook Outbox
+
+This public prototype uses a local outbox instead of sending real callbacks:
+
+- `GET /api/v1/webhook-deliveries` lists partner-scoped delivery records.
+- `GET /api/v1/webhook-deliveries/{event_id}` retrieves one delivery record.
+- `POST /api/v1/webhook-deliveries/{event_id}/retry` schedules a local retry and updates attempt metadata.
+
+Configure `OUTAGE_WEBHOOK_SECRET` to generate sandbox HMAC signatures in `X-Webhook-Signature`. Do not store real callback URLs, production secrets, or partner endpoint details in this repository.
 
 ## Data Minimization
 

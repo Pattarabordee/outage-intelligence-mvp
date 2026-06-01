@@ -11,7 +11,15 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import settings
 from .exceptions import StateConflictError
-from .schemas import FieldSignalIn, ImmediateResponse, IncidentCreate, IncidentOut, IncidentWithSignals, RestoreIn
+from .schemas import (
+    FieldSignalIn,
+    ImmediateResponse,
+    IncidentCreate,
+    IncidentOut,
+    IncidentWithSignals,
+    RestoreIn,
+    WebhookDeliveryOut,
+)
 from .security import PartnerContext, assert_partner_access, effective_partner_id, resolve_partner_context
 from .services import IncidentService
 
@@ -19,8 +27,14 @@ from .services import IncidentService
 def create_app(
     db_path: str | Path | None = None,
     sandbox_api_keys: Mapping[str, str] | None = None,
+    webhook_secret: str | None = None,
+    webhook_max_attempts: int | None = None,
 ) -> FastAPI:
-    service = IncidentService(db_path=db_path)
+    service = IncidentService(
+        db_path=db_path,
+        webhook_secret=webhook_secret,
+        webhook_max_attempts=webhook_max_attempts,
+    )
     configured_api_keys = dict(settings.sandbox_api_keys if sandbox_api_keys is None else sandbox_api_keys)
 
     @asynccontextmanager
@@ -100,6 +114,10 @@ def create_app(
             "decision": app.state.service.decision_for_incident(incident),
         }
 
+    def assert_webhook_delivery_access(context: PartnerContext, delivery: dict) -> None:
+        if context.partner_id and delivery["partner_id"] != context.partner_id:
+            raise HTTPException(status_code=403, detail="Partner cannot access this webhook delivery")
+
     @app.post("/api/v1/incidents", response_model=ImmediateResponse, status_code=201)
     def create_incident(
         payload: IncidentCreate,
@@ -177,6 +195,28 @@ def create_app(
             incident = app.state.service.get_incident(incident_id)
             assert_partner_access(context, incident)
             return app.state.service.restore_incident(incident_id, restored_by=payload.restored_by)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.get("/api/v1/webhook-deliveries", response_model=list[WebhookDeliveryOut])
+    def list_webhook_deliveries(context: PartnerContext = Depends(partner_context)):
+        return app.state.service.list_webhook_deliveries(partner_id=context.partner_id)
+
+    @app.get("/api/v1/webhook-deliveries/{event_id}", response_model=WebhookDeliveryOut)
+    def get_webhook_delivery(event_id: str, context: PartnerContext = Depends(partner_context)):
+        try:
+            delivery = app.state.service.get_webhook_delivery(event_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        assert_webhook_delivery_access(context, delivery)
+        return delivery
+
+    @app.post("/api/v1/webhook-deliveries/{event_id}/retry", response_model=WebhookDeliveryOut)
+    def retry_webhook_delivery(event_id: str, context: PartnerContext = Depends(partner_context)):
+        try:
+            delivery = app.state.service.get_webhook_delivery(event_id)
+            assert_webhook_delivery_access(context, delivery)
+            return app.state.service.retry_webhook_delivery(event_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 

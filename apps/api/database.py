@@ -65,6 +65,22 @@ CREATE TABLE IF NOT EXISTS incident_events (
     FOREIGN KEY(incident_id) REFERENCES incidents(id)
 );
 
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    event_id TEXT PRIMARY KEY,
+    partner_id TEXT NOT NULL,
+    incident_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    headers_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    next_attempt_at TEXT,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 """
 
 

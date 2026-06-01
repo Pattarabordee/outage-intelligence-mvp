@@ -106,6 +106,22 @@ class IncidentWithSignals(BaseModel):
     decision: DecisionOut
 
 
+class WebhookDeliveryOut(BaseModel):
+    event_id: str
+    partner_id: str
+    incident_id: str
+    event_type: str
+    payload: dict[str, Any]
+    headers: dict[str, str]
+    status: str
+    attempt_count: int
+    max_attempts: int
+    next_attempt_at: datetime | None = None
+    last_error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class ErrorDetail(BaseModel):
     field: str | None = None
     message: str

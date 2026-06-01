@@ -25,6 +25,8 @@ class Settings:
     policy_version: str = "rules-v1"
     db_path: Path = Path(os.getenv("OUTAGE_DB_PATH", Path(tempfile.gettempdir()) / "outage_intelligence_demo.db"))
     sandbox_api_keys: dict[str, str] = field(default_factory=parse_sandbox_api_keys)
+    webhook_secret: str | None = os.getenv("OUTAGE_WEBHOOK_SECRET") or None
+    webhook_max_attempts: int = int(os.getenv("OUTAGE_WEBHOOK_MAX_ATTEMPTS", "3"))
 
 
 settings = Settings()

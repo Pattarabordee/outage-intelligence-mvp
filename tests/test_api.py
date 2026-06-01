@@ -153,6 +153,83 @@ def test_source_event_id_is_idempotent_per_partner(auth_client, partner_a_header
     assert first_res.json()["incident"]["id"] != other_partner_res.json()["incident"]["id"]
 
 
+def test_webhook_delivery_is_queued_signed_and_retryable(auth_client, partner_a_headers, partner_b_headers):
+    create_res = create_incident(auth_client, site_id="SITE-WEBHOOK-001", headers=partner_a_headers)
+    delivery_res = auth_client.get("/api/v1/webhook-deliveries", headers=partner_a_headers)
+
+    assert create_res.status_code == 201
+    assert delivery_res.status_code == 200
+    delivery = delivery_res.json()[0]
+    assert delivery["event_type"] == "incident.created"
+    assert delivery["partner_id"] == "partner-a"
+    assert delivery["headers"]["X-Webhook-Signature"].startswith("sha256=")
+    assert delivery["payload"]["event_id"] == delivery["event_id"]
+    assert delivery["status"] == "queued"
+
+    forbidden_res = auth_client.get(f"/api/v1/webhook-deliveries/{delivery['event_id']}", headers=partner_b_headers)
+    retry_res = auth_client.post(f"/api/v1/webhook-deliveries/{delivery['event_id']}/retry", headers=partner_a_headers)
+
+    assert forbidden_res.status_code == 403
+    assert retry_res.status_code == 200
+    assert retry_res.json()["attempt_count"] == 1
+    assert retry_res.json()["status"] == "retry_scheduled"
+    assert retry_res.json()["next_attempt_at"] is not None
+
+
+def test_lifecycle_webhook_events_are_queued(auth_client, partner_a_headers):
+    create_res = create_incident(
+        auth_client,
+        site_id="SITE-WEBHOOK-002",
+        headers=partner_a_headers,
+        source_event_id="SRC-WEBHOOK-002",
+    )
+    incident_id = create_res.json()["incident"]["id"]
+
+    duplicate_res = auth_client.post(
+        "/api/v1/incidents",
+        headers=partner_a_headers,
+        json={
+            "client_name": "DemoEnterprisePartner",
+            "site_id": "SITE-WEBHOOK-002",
+            "province": "North Zone",
+            "scada_status": "OUTAGE_CONFIRMED",
+            "source_event_id": "SRC-WEBHOOK-002",
+        },
+    )
+    signal_res = auth_client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        headers=partner_a_headers,
+        json={"channel": "FIELD_APP", "raw_text": "Pole down near segment A"},
+    )
+    restore_res = auth_client.post(
+        f"/api/v1/incidents/{incident_id}/restore",
+        headers=partner_a_headers,
+        json={"restored_by": "SCADA_SENSOR"},
+    )
+    deliveries = auth_client.get("/api/v1/webhook-deliveries", headers=partner_a_headers).json()
+    event_types = [delivery["event_type"] for delivery in deliveries]
+
+    assert duplicate_res.status_code == 200
+    assert signal_res.status_code == 200
+    assert restore_res.status_code == 200
+    assert "incident.created" in event_types
+    assert "duplicate.ignored" in event_types
+    assert "eta.revised" in event_types
+    assert "incident.restored" in event_types
+
+
+def test_timeout_webhook_event_is_queued(auth_client, partner_a_headers):
+    create_res = create_incident(auth_client, site_id="SITE-WEBHOOK-003", headers=partner_a_headers)
+    incident_id = create_res.json()["incident"]["id"]
+    auth_client.app.state.service.force_backdate_incident(incident_id, minutes_ago=121)
+
+    timeout_res = auth_client.post(f"/api/v1/incidents/{incident_id}/timeout-check", headers=partner_a_headers)
+    deliveries = auth_client.get("/api/v1/webhook-deliveries", headers=partner_a_headers).json()
+
+    assert timeout_res.status_code == 200
+    assert "timeout.applied" in [delivery["event_type"] for delivery in deliveries]
+
+
 def test_restore_closes_ticket_and_exports_dataset(client):
     create_res = create_incident(client, site_id="SITE-3001", province="South Zone")
     incident_id = create_res.json()["incident"]["id"]

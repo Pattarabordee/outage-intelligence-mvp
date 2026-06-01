@@ -9,6 +9,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Idempotency for incident and field-signal ingestion
 - Standardized error response shape
 - Audit trail for ETA revisions, timeout fallback, and restoration closure
+- Local webhook outbox with signed metadata and retry scheduling
 - Health endpoint with public-safe service metadata
 - Test and coverage gate for core workflows
 - Synthetic data boundary and documented governance assumptions
@@ -18,7 +19,7 @@ This repository is ready as a public-safe enterprise product prototype. It is no
 - Production-grade authentication and partner authorization
 - Strong tenant isolation beyond the local SQLite prototype
 - Rate limiting and replay protection for write endpoints
-- Real webhook signature verification
+- Real outbound webhook delivery workers and receiver-side signature verification
 - Database migration strategy beyond local SQLite
 - Structured observability, alerting, and incident-owner runbooks
 - Data retention, de-identification, and regulatory review for real operational data

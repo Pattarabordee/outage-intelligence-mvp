@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from .config import settings
 from .database import fetch_all, fetch_one, get_connection, init_db
 from .exceptions import StateConflictError
 from .observability import log_event
@@ -23,6 +24,7 @@ from .rules import (
     recommendation_from_eta,
 )
 from .types import JSONDict
+from .webhooks import build_webhook_headers, canonical_json
 
 
 def utcnow() -> datetime:
@@ -100,9 +102,34 @@ def row_to_event(row: sqlite3.Row) -> JSONDict:
     }
 
 
+def row_to_webhook_delivery(row: sqlite3.Row) -> JSONDict:
+    return {
+        "event_id": row["event_id"],
+        "partner_id": row["partner_id"],
+        "incident_id": row["incident_id"],
+        "event_type": row["event_type"],
+        "payload": _loads_json(row["payload_json"], {}),
+        "headers": _loads_json(row["headers_json"], {}),
+        "status": row["status"],
+        "attempt_count": row["attempt_count"],
+        "max_attempts": row["max_attempts"],
+        "next_attempt_at": parse_dt(row["next_attempt_at"]),
+        "last_error": row["last_error"],
+        "created_at": parse_dt(row["created_at"]),
+        "updated_at": parse_dt(row["updated_at"]),
+    }
+
+
 class IncidentService:
-    def __init__(self, db_path: str | Path | None = None):
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        webhook_secret: str | None = None,
+        webhook_max_attempts: int | None = None,
+    ):
         self.db_path = db_path
+        self.webhook_secret = webhook_secret if webhook_secret is not None else settings.webhook_secret
+        self.webhook_max_attempts = webhook_max_attempts or settings.webhook_max_attempts
         init_db(self.db_path)
 
     @contextmanager
@@ -129,6 +156,7 @@ class IncidentService:
             existing = self.get_incident_by_source_event_id(partner_id, idempotency_value)
             if existing:
                 log_event("duplicate_incident_ignored", partner_id=partner_id, source_event_id=idempotency_value)
+                self.enqueue_webhook_delivery(existing, "duplicate.ignored")
                 return existing, False
 
         now = utcnow()
@@ -194,7 +222,9 @@ class IncidentService:
             )
             conn.commit()
         log_event("incident_created", incident_id=incident_id, partner_id=partner_id, reason_code="SCADA_INITIAL_ASSESSMENT")
-        return self.get_incident(incident_id), True
+        incident = self.get_incident(incident_id)
+        self.enqueue_webhook_delivery(incident, "incident.created")
+        return incident, True
 
     def get_incident_by_source_event_id(self, partner_id: str, source_event_id: str) -> JSONDict | None:
         with self._conn() as conn:
@@ -323,7 +353,10 @@ class IncidentService:
                     eta_hours=new_eta,
                 )
             conn.commit()
-        return self.get_incident(incident_id), signal
+        updated_incident = self.get_incident(incident_id)
+        webhook_event_type = "incident.restored" if updated_incident["status"] == "CLOSED" else "eta.revised"
+        self.enqueue_webhook_delivery(updated_incident, webhook_event_type)
+        return updated_incident, signal
 
     def get_signal_by_source_signal_id(self, source_signal_id: str) -> JSONDict | None:
         with self._conn() as conn:
@@ -381,7 +414,9 @@ class IncidentService:
             )
             conn.commit()
         log_event("timeout_applied", incident_id=incident_id, partner_id=incident["partner_id"], eta_hours=new_eta)
-        return self.get_incident(incident_id)
+        updated_incident = self.get_incident(incident_id)
+        self.enqueue_webhook_delivery(updated_incident, "timeout.applied")
+        return updated_incident
 
     def force_backdate_incident(self, incident_id: str, minutes_ago: int) -> JSONDict:
         reference = utcnow() - timedelta(minutes=minutes_ago)
@@ -411,7 +446,9 @@ class IncidentService:
             )
             conn.commit()
         log_event("incident_closed", incident_id=incident_id, partner_id=incident["partner_id"], source=restored_by)
-        return self.get_incident(incident_id)
+        updated_incident = self.get_incident(incident_id)
+        self.enqueue_webhook_delivery(updated_incident, "incident.restored")
+        return updated_incident
 
     def decision_for_incident(self, incident: JSONDict) -> JSONDict:
         recommendation = incident["dispatch_decision"]
@@ -430,6 +467,111 @@ class IncidentService:
                 "idempotency_fields": ["source_event_id", "idempotency_key", "source_signal_id"],
             },
         }
+
+    def enqueue_webhook_delivery(self, incident: JSONDict, event_type: str) -> JSONDict:
+        now = utcnow()
+        event_id = f"evt-{uuid.uuid4().hex[:12]}"
+        payload = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "partner_id": incident["partner_id"],
+            "incident_id": incident["id"],
+            "occurred_at": dtstr(now),
+            "decision": self.decision_for_incident(incident),
+        }
+        payload_json = canonical_json(payload)
+        headers = build_webhook_headers(
+            payload_json=payload_json,
+            partner_id=incident["partner_id"],
+            event_id=event_id,
+            occurred_at=dtstr(now) or "",
+            secret=self.webhook_secret,
+        )
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO webhook_deliveries (
+                    event_id, partner_id, incident_id, event_type, payload_json,
+                    headers_json, status, attempt_count, max_attempts,
+                    next_attempt_at, last_error, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    incident["partner_id"],
+                    incident["id"],
+                    event_type,
+                    payload_json,
+                    json.dumps(headers, sort_keys=True),
+                    "queued",
+                    0,
+                    self.webhook_max_attempts,
+                    None,
+                    None,
+                    dtstr(now),
+                    dtstr(now),
+                ),
+            )
+            conn.commit()
+        log_event(
+            "webhook_queued",
+            event_id=event_id,
+            partner_id=incident["partner_id"],
+            webhook_event_type=event_type,
+        )
+        return self.get_webhook_delivery(event_id)
+
+    def list_webhook_deliveries(self, partner_id: str | None = None) -> list[JSONDict]:
+        with self._conn() as conn:
+            if partner_id:
+                rows = fetch_all(
+                    conn,
+                    "SELECT * FROM webhook_deliveries WHERE partner_id = ? ORDER BY created_at ASC",
+                    (partner_id,),
+                )
+            else:
+                rows = fetch_all(conn, "SELECT * FROM webhook_deliveries ORDER BY created_at ASC")
+            return [row_to_webhook_delivery(row) for row in rows]
+
+    def get_webhook_delivery(self, event_id: str) -> JSONDict:
+        with self._conn() as conn:
+            row = fetch_one(conn, "SELECT * FROM webhook_deliveries WHERE event_id = ?", (event_id,))
+            if not row:
+                raise KeyError(f"Webhook delivery not found: {event_id}")
+            return row_to_webhook_delivery(row)
+
+    def retry_webhook_delivery(self, event_id: str) -> JSONDict:
+        delivery = self.get_webhook_delivery(event_id)
+        now = utcnow()
+        next_attempt_count = delivery["attempt_count"] + 1
+        if delivery["attempt_count"] >= delivery["max_attempts"]:
+            status = "exhausted"
+            next_attempt_at = None
+            last_error = "Maximum retry attempts reached"
+        else:
+            status = "retry_scheduled"
+            next_attempt_at = now + timedelta(minutes=2 ** max(delivery["attempt_count"], 0))
+            last_error = "Local sandbox retry scheduled; no outbound HTTP was sent."
+
+        with self._conn() as conn:
+            conn.execute(
+                """
+                UPDATE webhook_deliveries
+                SET status = ?, attempt_count = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
+                WHERE event_id = ?
+                """,
+                (
+                    status,
+                    min(next_attempt_count, delivery["max_attempts"]),
+                    dtstr(next_attempt_at),
+                    last_error,
+                    dtstr(now),
+                    event_id,
+                ),
+            )
+            conn.commit()
+        log_event("webhook_retry_requested", event_id=event_id, partner_id=delivery["partner_id"], status=status)
+        return self.get_webhook_delivery(event_id)
 
     def export_closed_incidents_dataset(self) -> list[JSONDict]:
         with self._conn() as conn:

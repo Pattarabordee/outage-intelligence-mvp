@@ -14,6 +14,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Synthetic data, synthetic identifiers, and no real partner payloads
 - Tested workflows for incident creation, ETA revision, timeout fallback, restoration closure, idempotency, and audit trail
 - Optional sandbox API-key boundary for partner pilot conversations
+- Local webhook outbox with signed payload metadata and retry scheduling for sandbox integration design
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -115,6 +116,16 @@ Sandbox partner auth can be enabled by configuring `OUTAGE_SANDBOX_API_KEYS` and
 
 `POST /api/v1/incidents/{incident_id}/restore` closes the incident, records restoration metadata, and makes the case available for analytics export.
 
+### 5. Inspect partner webhook delivery records
+
+The prototype uses a local webhook outbox rather than sending HTTP callbacks. This keeps the public repo safe while still demonstrating retry-safe partner notification design.
+
+- `GET /api/v1/webhook-deliveries`
+- `GET /api/v1/webhook-deliveries/{event_id}`
+- `POST /api/v1/webhook-deliveries/{event_id}/retry`
+
+When `OUTAGE_WEBHOOK_SECRET` is configured, queued delivery records include an HMAC-style `X-Webhook-Signature`. Without a configured secret, payloads are explicitly marked as `unsigned`.
+
 ```bash
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
 python scripts/train_eta_baseline.py
@@ -159,11 +170,14 @@ Useful local endpoints:
 - Executive demo view: `http://127.0.0.1:8000/demo/incidents`
 - Health check: `http://127.0.0.1:8000/health`
 - Readiness check: `http://127.0.0.1:8000/ready`
+- Webhook outbox: `http://127.0.0.1:8000/api/v1/webhook-deliveries`
 
 Optional runtime configuration:
 
 - `OUTAGE_DB_PATH`: SQLite database path for local runs
 - `OUTAGE_SANDBOX_API_KEYS`: optional comma-separated sandbox keys, for example `partner-a:key-a,partner-b:key-b`
+- `OUTAGE_WEBHOOK_SECRET`: optional sandbox HMAC secret for queued webhook payload metadata
+- `OUTAGE_WEBHOOK_MAX_ATTEMPTS`: max local retry attempts for webhook delivery records, default `3`
 
 Quality checks:
 

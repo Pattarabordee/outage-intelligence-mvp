@@ -38,6 +38,7 @@ def auth_client():
                 "partner-a": "sandbox-key-a",
                 "partner-b": "sandbox-key-b",
             },
+            webhook_secret="test-webhook-secret",
         )
     )
     try:

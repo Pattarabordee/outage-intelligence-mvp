@@ -95,6 +95,48 @@ SLA-style behavior:
 
 Closes the incident and logs the restoration timestamp for future analytics or ML training.
 
+## GET `/api/v1/webhook-deliveries`
+
+Lists local webhook outbox records for the authenticated partner. This prototype does not send outbound HTTP callbacks; it records delivery intent, signed metadata, payload, status, and retry state for sandbox integration review.
+
+Example response:
+
+```json
+[
+  {
+    "event_id": "evt-synthetic-001",
+    "partner_id": "partner-telecom-sandbox",
+    "incident_id": "INC-EXAMPLE",
+    "event_type": "eta.revised",
+    "payload": {
+      "event_id": "evt-synthetic-001",
+      "event_type": "eta.revised",
+      "partner_id": "partner-telecom-sandbox",
+      "incident_id": "INC-EXAMPLE"
+    },
+    "headers": {
+      "X-Partner-Id": "partner-telecom-sandbox",
+      "X-Webhook-Event-Id": "evt-synthetic-001",
+      "X-Webhook-Signature": "sha256=synthetic-example",
+      "X-Webhook-Timestamp": "2026-06-01T10:00:00+00:00"
+    },
+    "status": "queued",
+    "attempt_count": 0,
+    "max_attempts": 3,
+    "next_attempt_at": null,
+    "last_error": null,
+    "created_at": "2026-06-01T10:00:00+00:00",
+    "updated_at": "2026-06-01T10:00:00+00:00"
+  }
+]
+```
+
+## POST `/api/v1/webhook-deliveries/{event_id}/retry`
+
+Schedules a local retry for a queued delivery record. The endpoint increments `attempt_count`, sets `status` to `retry_scheduled`, and calculates `next_attempt_at` using a simple backoff policy. It does not send network traffic.
+
+Access is partner-scoped: one partner cannot inspect or retry another partner's delivery record.
+
 ## Error Format
 
 All API errors use the same shape:
