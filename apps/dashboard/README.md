@@ -1,6 +1,6 @@
 # Executive Demo Surface
 
-The current public-safe prototype exposes a lightweight executive demo at `/demo/incidents`.
+The current public-safe prototype exposes an executive partner demo at `/demo/incidents` and a sanitized JSON feed at `/api/v1/demo/executive-summary`.
 
 The page is designed to tell the product story in a short partner walkthrough:
 
@@ -10,6 +10,8 @@ The page is designed to tell the product story in a short partner walkthrough:
 - timeout failsafe prevents stalled decisions
 - webhook outbox and sandbox delivery attempts show partner notification readiness
 - restoration closure creates analytics and ML ground truth
+
+The current implementation intentionally stays inside the FastAPI service so the repo remains easy to clone and run. A separate frontend can be added later when the operator dashboard needs richer interactivity.
 
 A production dashboard could be split into a separate frontend and add:
 

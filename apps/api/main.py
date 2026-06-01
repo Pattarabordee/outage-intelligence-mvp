@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from .config import settings
 from .exceptions import AccessDeniedError, StateConflictError
 from .schemas import (
+    ExecutiveSummaryOut,
     FieldSignalIn,
     ImmediateResponse,
     IncidentCreate,
@@ -290,68 +291,237 @@ def create_app(
         except StateConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @app.get("/api/v1/demo/executive-summary", response_model=ExecutiveSummaryOut)
+    def executive_summary():
+        return app.state.service.executive_summary()
+
     @app.get("/demo/incidents", response_class=HTMLResponse)
     def demo_incidents():
-        incidents = app.state.service.list_incidents()
-        rows = []
-        timeline_items = []
-        for inc in incidents:
-            decision = app.state.service.decision_for_incident(inc)
-            rows.append(
-                f"<tr><td>{html_escape.escape(inc['id'])}</td><td>{html_escape.escape(inc['partner_id'])}</td>"
-                f"<td>{html_escape.escape(inc['site_id'])}</td><td>{html_escape.escape(inc['province'])}</td>"
-                f"<td>{html_escape.escape(inc['status'])}</td><td>{html_escape.escape(inc['severity'])}</td>"
-                f"<td>{inc['current_eta_hours']}</td><td>{html_escape.escape(decision['partner_action'])}</td></tr>"
-            )
-            for event in app.state.service.list_events(inc["id"]):
-                timeline_items.append(
-                    f"<li><strong>{html_escape.escape(event['event_type'])}</strong> "
-                    f"<span class='small'>{html_escape.escape(inc['site_id'])} | "
-                    f"{html_escape.escape(event['reason_code'])} | "
-                    f"ETA {event['new_eta_hours']}h</span></li>"
-                )
+        summary = app.state.service.executive_summary()
+
+        def esc(value) -> str:
+            return html_escape.escape(str(value))
+
+        def percent(value: float) -> str:
+            return f"{round(value * 100)}%"
+
+        metrics = summary["metrics"]
+        ml_readiness = summary["ml_readiness"]
+        metric_cards = "".join(
+            [
+                f"<article class='metric'><span>{label}</span><strong>{esc(value)}</strong><em>{esc(note)}</em></article>"
+                for label, value, note in [
+                    ("Partner profiles", metrics["partner_profiles"], "sandbox tenants"),
+                    ("Incidents", metrics["total_incidents"], "synthetic cases"),
+                    ("Closed loop rows", ml_readiness["closed_dataset_rows"], "ML-ready outcomes"),
+                    ("Webhook events", metrics["webhook_deliveries"], "outbox records"),
+                    ("Audit completeness", percent(metrics["audit_completeness_rate"]), "events captured"),
+                    ("Ground truth coverage", percent(ml_readiness["restoration_ground_truth_coverage"]), "restored cases"),
+                ]
+            ]
+        )
+        journey_items = "".join(
+            [
+                "<li>"
+                f"<span class='timeline-dot' aria-hidden='true'></span>"
+                f"<div><strong>{esc(item['stage'])}</strong>"
+                f"<p>{esc(item['site_id'])} | {esc(item['reason_code'])} | ETA {esc(item['eta_hours'])}h</p>"
+                f"<small>{esc(item['partner_id'])} | {esc(item['status'])}</small></div>"
+                "</li>"
+                for item in summary["partner_journey"]
+            ]
+        )
+        if not journey_items:
+            journey_items = "<li><span class='timeline-dot' aria-hidden='true'></span><div><strong>No journey yet</strong><p>Run the seed script to populate a synthetic partner pilot story.</p></div></li>"
+
+        decision_cards = "".join(
+            [
+                "<article class='panel-card'>"
+                f"<span class='eyebrow'>{esc(item['site_id'])} | {esc(item['confidence_band'])} confidence</span>"
+                f"<h3>{esc(item['reason_code'])}</h3>"
+                f"<p>{esc(item['partner_action'])}</p>"
+                f"<small>{esc(item['policy_explanation'])}</small>"
+                "</article>"
+                for item in summary["decision_rationale"]
+            ]
+        )
+        if not decision_cards:
+            decision_cards = "<article class='panel-card'><h3>No decisions yet</h3><p>Create a synthetic incident to show policy rationale.</p></article>"
+
+        webhook_rows = "".join(
+            [
+                "<tr>"
+                f"<td>{esc(event['event_type'])}</td>"
+                f"<td>{esc(event['partner_id'])}</td>"
+                f"<td><span class='status'>{esc(event['status'])}</span></td>"
+                f"<td>{esc(event['attempt_count'])}/{esc(event['max_attempts'])}</td>"
+                "</tr>"
+                for event in summary["webhook_delivery"]["recent_events"]
+            ]
+        )
+        if not webhook_rows:
+            webhook_rows = "<tr><td colspan='4'>No webhook delivery records yet.</td></tr>"
+
+        export_shape = "".join(f"<li>{esc(field)}</li>" for field in ml_readiness["export_shape"])
+        safe_controls = "".join(f"<li>{esc(control)}</li>" for control in summary["public_safe_controls"])
         html = f"""
-        <html>
+        <!doctype html>
+        <html lang="en">
         <head>
-          <title>Outage Intelligence Demo</title>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Executive Partner Demo | Outage Intelligence</title>
           <style>
-            body {{ font-family: Arial, sans-serif; margin: 24px; color: #172033; background: #f7f9fc; }}
-            .hero {{ background: #12355b; color: white; padding: 24px; border-radius: 16px; }}
-            .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 20px 0; }}
-            .card {{ background: white; border: 1px solid #d9e2ef; border-radius: 12px; padding: 14px; }}
-            .card strong {{ display: block; margin-bottom: 6px; color: #12355b; }}
-            .timeline {{ background: white; border: 1px solid #d9e2ef; border-radius: 12px; padding: 18px; }}
-            .timeline li {{ margin: 8px 0; }}
-            table {{ border-collapse: collapse; width: 100%; background: white; }}
-            td, th {{ border: 1px solid #d9e2ef; padding: 8px; }}
-            th {{ text-align: left; background: #eaf1fb; }}
-            .small {{ color: #526070; }}
+            :root {{
+              --ink: #102033;
+              --muted: #536172;
+              --paper: #fbf7ef;
+              --surface: #ffffff;
+              --line: #d8cbb9;
+              --navy: #0f2f4a;
+              --teal: #0f766e;
+              --amber: #b45309;
+              --mint: #d9f4ec;
+              --focus: #f59e0b;
+            }}
+            * {{ box-sizing: border-box; }}
+            body {{
+              margin: 0;
+              color: var(--ink);
+              background:
+                radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 32rem),
+                linear-gradient(135deg, #fbf7ef 0%, #edf6f4 52%, #f8fbff 100%);
+              font-family: "Aptos Display", "Bahnschrift", "Trebuchet MS", sans-serif;
+              line-height: 1.55;
+            }}
+            .skip {{
+              position: absolute;
+              left: 1rem;
+              top: -4rem;
+              background: var(--navy);
+              color: white;
+              padding: 0.75rem 1rem;
+              border-radius: 999px;
+            }}
+            .skip:focus {{ top: 1rem; outline: 3px solid var(--focus); }}
+            main {{ max-width: 1180px; margin: 0 auto; padding: 32px 20px 56px; }}
+            .hero {{
+              display: grid;
+              gap: 24px;
+              grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.8fr);
+              padding: 34px;
+              border-radius: 28px;
+              color: white;
+              background: linear-gradient(135deg, #0f2f4a 0%, #155e63 62%, #9a5b13 100%);
+              box-shadow: 0 24px 60px rgba(16, 32, 51, 0.18);
+            }}
+            h1, h2, h3, p {{ margin-top: 0; }}
+            h1 {{ font-size: clamp(2.25rem, 5vw, 4.8rem); line-height: 0.95; letter-spacing: -0.06em; margin-bottom: 18px; }}
+            h2 {{ font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -0.03em; }}
+            .hero p {{ font-size: 1.1rem; max-width: 66ch; color: #eef8f5; }}
+            .badge {{
+              display: inline-flex;
+              min-height: 32px;
+              align-items: center;
+              gap: 8px;
+              border: 1px solid rgba(255, 255, 255, 0.35);
+              border-radius: 999px;
+              padding: 6px 12px;
+              background: rgba(255, 255, 255, 0.12);
+              font-size: 0.88rem;
+              font-weight: 700;
+            }}
+            .hero-aside {{
+              border: 1px solid rgba(255, 255, 255, 0.28);
+              border-radius: 22px;
+              padding: 22px;
+              background: rgba(255, 255, 255, 0.12);
+            }}
+            .metrics {{
+              display: grid;
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              gap: 14px;
+              margin: 22px 0;
+            }}
+            .metric, .panel, .panel-card {{
+              border: 1px solid var(--line);
+              background: rgba(255, 255, 255, 0.88);
+              border-radius: 22px;
+              box-shadow: 0 12px 28px rgba(16, 32, 51, 0.08);
+            }}
+            .metric {{ padding: 18px; min-height: 132px; }}
+            .metric span, .eyebrow {{ display: block; color: var(--muted); font-size: 0.86rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }}
+            .metric strong {{ display: block; margin: 10px 0 4px; font-size: 2rem; line-height: 1; color: var(--navy); }}
+            .metric em, small {{ color: var(--muted); font-style: normal; }}
+            .grid {{ display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; }}
+            .panel {{ padding: 24px; margin-top: 18px; }}
+            .timeline-list {{ list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }}
+            .timeline-list li {{ display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; }}
+            .timeline-dot {{ width: 14px; height: 14px; border-radius: 50%; margin-top: 6px; background: var(--teal); box-shadow: 0 0 0 6px var(--mint); }}
+            .panel-card {{ padding: 18px; margin-top: 12px; }}
+            .panel-card h3 {{ margin: 8px 0; color: var(--navy); }}
+            table {{ width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 16px; }}
+            th, td {{ border-bottom: 1px solid var(--line); padding: 12px; text-align: left; vertical-align: top; }}
+            th {{ color: var(--navy); background: #f4eadc; font-size: 0.88rem; }}
+            caption {{ text-align: left; font-weight: 800; margin-bottom: 12px; color: var(--navy); }}
+            .status {{ display: inline-flex; min-height: 28px; align-items: center; border-radius: 999px; padding: 4px 10px; background: var(--mint); color: #064e3b; font-weight: 800; }}
+            .ml-list, .safe-list {{ margin: 0; padding-left: 20px; }}
+            .safe-list li, .ml-list li {{ margin: 7px 0; }}
+            a:focus, button:focus, [tabindex]:focus {{ outline: 3px solid var(--focus); outline-offset: 3px; }}
+            @media (max-width: 820px) {{
+              main {{ padding: 18px 12px 40px; }}
+              .hero, .grid, .metrics {{ grid-template-columns: 1fr; }}
+              .hero {{ padding: 24px; border-radius: 22px; }}
+              th, td {{ padding: 10px 8px; }}
+            }}
           </style>
         </head>
         <body>
-          <section class="hero">
-            <h1>Enterprise Outage Intelligence</h1>
-            <p>Public-safe product prototype for utility-to-enterprise coordination across outage ETA, partner action, audit trail, and ML-ready ground truth.</p>
-          </section>
-          <section class="cards">
-            <div class="card"><strong>1. Incident opened</strong><span class="small">Enterprise partner sends a synthetic outage event.</span></div>
-            <div class="card"><strong>2. ETA returned</strong><span class="small">Decision policy returns an immediate partner recommendation.</span></div>
-            <div class="card"><strong>3. Evidence revises ETA</strong><span class="small">Field signals update confidence, reason code, and action.</span></div>
-            <div class="card"><strong>4. Ground truth captured</strong><span class="small">Restoration closes the loop for analytics and ML baselines.</span></div>
-          </section>
-          <section class="timeline">
-            <h2>Pilot Timeline</h2>
-            <ol>{''.join(timeline_items) or '<li>No incident events yet. Run the seed script to populate a synthetic partner journey.</li>'}</ol>
-          </section>
-          <h2>Incident Portfolio</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th><th>Partner</th><th>Site</th><th>Province</th><th>Status</th><th>Severity</th><th>ETA Hours</th><th>Partner Action</th>
-              </tr>
-            </thead>
-            <tbody>{''.join(rows)}</tbody>
-          </table>
+          <a class="skip" href="#main">Skip to main content</a>
+          <main id="main">
+            <section class="hero" aria-labelledby="page-title">
+              <div>
+                <span class="badge">Executive Partner Demo</span>
+                <h1 id="page-title">Enterprise Outage Intelligence</h1>
+                <p>{esc(summary['narrative'])}</p>
+              </div>
+              <aside class="hero-aside" aria-label="Public-safe demo boundary">
+                <h2>Public-Safe Boundary</h2>
+                <ul class="safe-list">{safe_controls}</ul>
+              </aside>
+            </section>
+
+            <section class="panel" aria-labelledby="summary-title">
+              <h2 id="summary-title">Executive Summary</h2>
+              <div class="metrics">{metric_cards}</div>
+            </section>
+
+            <div class="grid">
+              <section class="panel" aria-labelledby="journey-title">
+                <h2 id="journey-title">Partner Journey</h2>
+                <ol class="timeline-list">{journey_items}</ol>
+              </section>
+              <section class="panel" aria-labelledby="decision-title">
+                <h2 id="decision-title">Decision Rationale</h2>
+                {decision_cards}
+              </section>
+            </div>
+
+            <section class="panel" aria-labelledby="webhook-title">
+              <h2 id="webhook-title">Webhook Delivery</h2>
+              <table>
+                <caption>Sandbox outbox status without private delivery headers</caption>
+                <thead><tr><th>Event</th><th>Partner</th><th>Status</th><th>Attempts</th></tr></thead>
+                <tbody>{webhook_rows}</tbody>
+              </table>
+            </section>
+
+            <section class="panel" aria-labelledby="ml-title">
+              <h2 id="ml-title">ML Readiness</h2>
+              <p>Closed incidents become measurable training rows with ETA error and policy metadata.</p>
+              <ul class="ml-list">{export_shape}</ul>
+            </section>
+          </main>
         </body>
         </html>
         """

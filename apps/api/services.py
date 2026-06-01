@@ -339,6 +339,11 @@ class IncidentService:
             row = fetch_one(conn, "SELECT * FROM partner_profiles WHERE partner_id = ?", (partner_id,))
             return row_to_partner_profile(row) if row else None
 
+    def list_partner_profiles(self) -> list[JSONDict]:
+        with self._conn() as conn:
+            rows = fetch_all(conn, "SELECT * FROM partner_profiles ORDER BY partner_id ASC")
+            return [row_to_partner_profile(row) for row in rows]
+
     def validate_partner_site_scope(self, partner_id: str, site_id: str) -> None:
         profile = self.get_partner_profile(partner_id)
         prefixes = profile["allowed_site_prefixes"] if profile else []
@@ -378,6 +383,11 @@ class IncidentService:
         with self._conn() as conn:
             rows = fetch_all(conn, "SELECT * FROM incident_events WHERE incident_id = ? ORDER BY created_at ASC", (incident_id,))
             return [row_to_event(r) for r in rows]
+
+    def list_all_events(self) -> list[JSONDict]:
+        with self._conn() as conn:
+            rows = fetch_all(conn, "SELECT * FROM incident_events ORDER BY created_at ASC")
+            return [row_to_event(row) for row in rows]
 
     def add_field_signal(
         self,
@@ -773,6 +783,121 @@ class IncidentService:
                 (event_id,),
             )
             return [row_to_webhook_attempt(row) for row in rows]
+
+    def executive_summary(self) -> JSONDict:
+        incidents = self.list_incidents()
+        events = self.list_all_events()
+        deliveries = self.list_webhook_deliveries()
+        profiles = self.list_partner_profiles()
+        closed_dataset = self.export_closed_incidents_dataset()
+
+        incidents_by_id = {incident["id"]: incident for incident in incidents}
+        closed_incidents = [incident for incident in incidents if incident["status"] == "CLOSED"]
+        active_incidents = [incident for incident in incidents if incident["status"] != "CLOSED"]
+        event_incident_ids = {event["incident_id"] for event in events}
+        restored_count = len([incident for incident in closed_incidents if incident["restored_at"] is not None])
+        status_counts: dict[str, int] = {}
+        attempt_count = 0
+        for delivery in deliveries:
+            status_counts[delivery["status"]] = status_counts.get(delivery["status"], 0) + 1
+            attempt_count += len(self.list_webhook_attempts(delivery["event_id"]))
+
+        total_incidents = len(incidents)
+        closed_count = len(closed_incidents)
+        audit_completeness_rate = round(len(event_incident_ids) / total_incidents, 3) if total_incidents else 0.0
+        ground_truth_coverage = round(restored_count / closed_count, 3) if closed_count else 0.0
+
+        stage_labels = {
+            "INCIDENT_CREATED": "Incident opened",
+            "ETA_REVISED": "ETA revised",
+            "TIMEOUT_APPLIED": "Timeout failsafe",
+            "INCIDENT_CLOSED": "Restoration closed loop",
+        }
+        journey = []
+        for event in events[-8:]:
+            incident = incidents_by_id.get(event["incident_id"], {})
+            journey.append(
+                {
+                    "stage": stage_labels.get(event["event_type"], event["event_type"].replace("_", " ").title()),
+                    "event_type": event["event_type"],
+                    "partner_id": incident.get("partner_id", "synthetic-partner"),
+                    "site_id": incident.get("site_id", "synthetic-site"),
+                    "status": incident.get("status", "UNKNOWN"),
+                    "reason_code": event["reason_code"],
+                    "eta_hours": event["new_eta_hours"],
+                    "occurred_at": dtstr(event["created_at"]),
+                }
+            )
+
+        decision_rationale = []
+        for incident in incidents[:5]:
+            decision = self.decision_for_incident(incident)
+            decision_rationale.append(
+                {
+                    "incident_id": incident["id"],
+                    "partner_id": incident["partner_id"],
+                    "site_id": incident["site_id"],
+                    "status": incident["status"],
+                    "eta_hours": decision["eta_hours"],
+                    "confidence_band": decision["confidence_band"],
+                    "reason_code": decision["reason_code"],
+                    "partner_action": decision["partner_action"],
+                    "policy_explanation": decision["policy_explanation"],
+                }
+            )
+
+        recent_deliveries = [
+            {
+                "event_id": delivery["event_id"],
+                "event_type": delivery["event_type"],
+                "partner_id": delivery["partner_id"],
+                "incident_id": delivery["incident_id"],
+                "status": delivery["status"],
+                "attempt_count": delivery["attempt_count"],
+                "max_attempts": delivery["max_attempts"],
+            }
+            for delivery in deliveries[-6:]
+        ]
+
+        return {
+            "generated_at": utcnow(),
+            "data_boundary": "synthetic-public-safe",
+            "narrative": "A 3-minute executive walkthrough from outage event to partner action and ML-ready ground truth.",
+            "metrics": {
+                "partner_profiles": len(profiles),
+                "total_incidents": total_incidents,
+                "active_incidents": len(active_incidents),
+                "closed_incidents": closed_count,
+                "timeout_fallbacks": len([incident for incident in incidents if incident["timeout_applied"]]),
+                "audit_events": len(events),
+                "webhook_deliveries": len(deliveries),
+                "webhook_attempts": attempt_count,
+                "audit_completeness_rate": audit_completeness_rate,
+            },
+            "partner_journey": journey,
+            "decision_rationale": decision_rationale,
+            "webhook_delivery": {
+                "status_counts": status_counts,
+                "recent_events": recent_deliveries,
+                "private_delivery_headers": "excluded",
+            },
+            "ml_readiness": {
+                "closed_dataset_rows": len(closed_dataset),
+                "restoration_ground_truth_coverage": ground_truth_coverage,
+                "export_shape": [
+                    "prediction_time",
+                    "actual_restoration_duration_hours",
+                    "eta_error_hours",
+                    "rule_version",
+                    "feature_snapshot",
+                ],
+            },
+            "public_safe_controls": [
+                "Synthetic partner and site identifiers only",
+                "Private delivery headers are excluded",
+                "No real topology, endpoint, or field transcript is rendered",
+            ],
+        }
 
     def export_closed_incidents_dataset(self) -> list[JSONDict]:
         with self._conn() as conn:

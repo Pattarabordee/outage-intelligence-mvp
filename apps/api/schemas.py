@@ -164,6 +164,18 @@ class WebhookAttemptResultOut(BaseModel):
     attempt: WebhookDeliveryAttemptOut
 
 
+class ExecutiveSummaryOut(BaseModel):
+    generated_at: datetime
+    data_boundary: str
+    narrative: str
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    partner_journey: list[dict[str, Any]] = Field(default_factory=list)
+    decision_rationale: list[dict[str, Any]] = Field(default_factory=list)
+    webhook_delivery: dict[str, Any] = Field(default_factory=dict)
+    ml_readiness: dict[str, Any] = Field(default_factory=dict)
+    public_safe_controls: list[str] = Field(default_factory=list)
+
+
 class ErrorDetail(BaseModel):
     field: str | None = None
     message: str

@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+SENSITIVE_DEMO_TERMS = [
+    "X-API-Key",
+    "X-Webhook-Signature",
+    "test-webhook-secret",
+    "sandbox-key-a",
+    "sandbox-key-b",
+    "callback URL",
+    "credential",
+    "token",
+]
+
+
 def create_incident(client, site_id: str = "SITE-1001", headers: dict | None = None, **overrides):
     payload = {
         "client_name": "DemoEnterprisePartner",
@@ -9,6 +21,54 @@ def create_incident(client, site_id: str = "SITE-1001", headers: dict | None = N
     }
     payload.update(overrides)
     return client.post("/api/v1/incidents", json=payload, headers=headers)
+
+
+def seed_executive_demo_story(client, headers: dict | None = None):
+    create_res = create_incident(
+        client,
+        site_id="SITE-DEMO-EXEC-001",
+        headers=headers,
+        source_event_id="SRC-DEMO-EXEC-001",
+    )
+    incident_id = create_res.json()["incident"]["id"]
+    client.post(
+        f"/api/v1/incidents/{incident_id}/signals/field",
+        headers=headers,
+        json={
+            "channel": "FIELD_APP",
+            "raw_text": "Pole down and conductor snapped near segment A",
+            "source_signal_id": "SRC-DEMO-EXEC-SIGNAL-001",
+        },
+    )
+    deliveries = client.get("/api/v1/webhook-deliveries", headers=headers).json()
+    eta_delivery = next(
+        delivery
+        for delivery in deliveries
+        if delivery["incident_id"] == incident_id and delivery["event_type"] == "eta.revised"
+    )
+    client.post(
+        f"/api/v1/webhook-deliveries/{eta_delivery['event_id']}/attempts",
+        headers=headers,
+        json={"outcome": "failed", "response_status": 503, "error_message": "Synthetic partner receiver unavailable"},
+    )
+    client.post(
+        f"/api/v1/webhook-deliveries/{eta_delivery['event_id']}/attempts",
+        headers=headers,
+        json={"outcome": "delivered", "response_status": 202},
+    )
+    client.post(f"/api/v1/incidents/{incident_id}/restore", headers=headers, json={"restored_by": "SCADA_SENSOR"})
+
+    timeout_res = create_incident(
+        client,
+        site_id="SITE-DEMO-EXEC-002",
+        headers=headers,
+        scada_status="UNKNOWN",
+        source_event_id="SRC-DEMO-EXEC-002",
+    )
+    timeout_id = timeout_res.json()["incident"]["id"]
+    client.app.state.service.force_backdate_incident(timeout_id, minutes_ago=121)
+    client.post(f"/api/v1/incidents/{timeout_id}/timeout-check", headers=headers)
+    return incident_id
 
 
 def test_create_incident_and_revise_eta(client):
@@ -79,6 +139,40 @@ def test_ready_endpoint_reports_pilot_readiness_checks(client):
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
     assert response.json()["checks"]["incident_store"] == "ok"
+
+
+def test_executive_summary_endpoint_is_public_safe_and_story_ready(auth_client, partner_a_headers):
+    seed_executive_demo_story(auth_client, headers=partner_a_headers)
+
+    response = auth_client.get("/api/v1/demo/executive-summary")
+    payload = response.json()
+    response_text = response.text
+
+    assert response.status_code == 200
+    assert payload["data_boundary"] == "synthetic-public-safe"
+    assert payload["metrics"]["total_incidents"] >= 2
+    assert payload["metrics"]["webhook_attempts"] >= 2
+    assert payload["webhook_delivery"]["status_counts"]["delivered"] >= 1
+    assert payload["ml_readiness"]["closed_dataset_rows"] >= 1
+    assert {"ETA_REVISED", "TIMEOUT_APPLIED", "INCIDENT_CLOSED"}.issubset(
+        {item["event_type"] for item in payload["partner_journey"]}
+    )
+    for term in SENSITIVE_DEMO_TERMS:
+        assert term not in response_text
+
+
+def test_executive_demo_page_renders_sections_without_sensitive_values(auth_client, partner_a_headers):
+    seed_executive_demo_story(auth_client, headers=partner_a_headers)
+
+    response = auth_client.get("/demo/incidents")
+    html = response.text
+
+    assert response.status_code == 200
+    for section in ["Executive Summary", "Partner Journey", "Decision Rationale", "Webhook Delivery", "ML Readiness"]:
+        assert section in html
+    assert "Skip to main content" in html
+    for term in SENSITIVE_DEMO_TERMS:
+        assert term not in html
 
 
 def test_sandbox_auth_requires_valid_partner_key(auth_client, partner_a_headers):

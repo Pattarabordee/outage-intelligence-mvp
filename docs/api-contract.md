@@ -183,6 +183,18 @@ State behavior:
 
 `GET /api/v1/webhook-deliveries/{event_id}/attempts` lists recorded sandbox attempts for the authenticated partner.
 
+## GET `/api/v1/demo/executive-summary`
+
+Returns a sanitized executive demo feed for the public-safe walkthrough page. It is read-only and intentionally excludes sandbox API keys, private delivery headers, raw field text, and callback details.
+
+Response includes:
+
+- `metrics`: partner profiles, incidents, audit events, webhook records, and audit completeness
+- `partner_journey`: synthetic event timeline with ETA and reason codes
+- `decision_rationale`: current partner action and policy explanation
+- `webhook_delivery`: status counts and recent outbox events without private headers
+- `ml_readiness`: closed-loop dataset rows and export shape
+
 ## Error Format
 
 All API errors use the same shape:

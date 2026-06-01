@@ -74,6 +74,18 @@ This public prototype uses a local outbox instead of sending real callbacks:
 
 Configure `OUTAGE_WEBHOOK_SECRET` to generate sandbox HMAC signatures in `X-Webhook-Signature`. Do not store real callback URLs, production secrets, or partner endpoint details in this repository.
 
+## Executive Walkthrough
+
+Use `python scripts/seed_demo_data.py` and open `/demo/incidents` to walk through the product story with an enterprise partner. The page is designed for a short pilot conversation:
+
+- outage incident opened
+- initial ETA and partner action returned
+- field evidence revises ETA
+- webhook delivery attempt is tracked
+- restoration creates ML-ready ground truth
+
+The JSON feed at `/api/v1/demo/executive-summary` is sanitized for public demos and excludes private delivery headers and raw field transcripts.
+
 ## Data Minimization
 
 Send only the operational fields needed for outage decisions. Avoid real names, chat messages, endpoint URLs, topology, GPS coordinates, and commercial terms in public prototype environments.

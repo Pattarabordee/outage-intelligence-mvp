@@ -16,6 +16,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Optional sandbox API-key boundary for partner pilot conversations
 - Partner sandbox profiles with site-scope boundaries and webhook mode metadata
 - Local webhook outbox with signed payload metadata, delivery attempts, and retry scheduling for sandbox integration design
+- Executive demo page and read-only summary feed for a 3-minute partner pilot walkthrough
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -133,6 +134,18 @@ The prototype uses a local webhook outbox rather than sending HTTP callbacks. Th
 
 When `OUTAGE_WEBHOOK_SECRET` is configured, queued delivery records include an HMAC-style `X-Webhook-Signature`. Without a configured secret, payloads are explicitly marked as `unsigned`.
 
+### 7. Walk through the executive demo
+
+`GET /demo/incidents` renders a public-safe executive walkthrough. `GET /api/v1/demo/executive-summary` provides the same sanitized story as JSON for demo automation or future dashboard work.
+
+The demo focuses on:
+
+- executive summary metrics
+- partner journey timeline
+- decision rationale
+- webhook delivery state
+- ML-ready ground truth coverage
+
 ```bash
 python scripts/export_closed_dataset.py --output data/runtime/closed-incidents.jsonl
 python scripts/train_eta_baseline.py
@@ -175,6 +188,7 @@ Useful local endpoints:
 
 - API docs: `http://127.0.0.1:8000/docs`
 - Executive demo view: `http://127.0.0.1:8000/demo/incidents`
+- Executive summary JSON: `http://127.0.0.1:8000/api/v1/demo/executive-summary`
 - Health check: `http://127.0.0.1:8000/health`
 - Readiness check: `http://127.0.0.1:8000/ready`
 - Webhook outbox: `http://127.0.0.1:8000/api/v1/webhook-deliveries`
@@ -189,6 +203,7 @@ Optional runtime configuration:
 Quality checks:
 
 ```bash
+python scripts/seed_demo_data.py
 pytest -q
 pytest --cov=apps --cov-report=term-missing --cov-fail-under=80
 python scripts/evaluate_product_metrics.py
