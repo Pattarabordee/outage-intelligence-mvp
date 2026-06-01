@@ -16,6 +16,7 @@ from apps.api.reporting import evaluate_rows, rate
 from apps.api.services import IncidentService
 from scripts.generate_readiness_gate import build_readiness_gate
 from scripts.run_ml_baseline_benchmark import build_ml_baseline_benchmark
+from scripts.run_shadow_evaluation_protocol import build_shadow_evaluation_protocol
 
 DEFAULT_DATASET = ROOT / "data" / "synthetic" / "closed_incidents.jsonl"
 
@@ -60,6 +61,7 @@ def build_pilot_report(
         rows=rows,
         input_label=input_label,
     )
+    shadow_protocol = build_shadow_evaluation_protocol()
 
     return {
         "report_type": "private-pilot-evidence-pack",
@@ -94,6 +96,7 @@ def build_pilot_report(
         "readiness_gate": readiness_gate,
         "scenario_matrix_evidence": readiness_gate["scenario_matrix"],
         "ml_baseline_evidence": ml_baseline,
+        "shadow_evaluation_evidence": shadow_protocol,
         "pilot_success_metrics": {
             "eta_mae_hours": product_metrics["eta_mae_hours"],
             "underestimation_rate": product_metrics["underestimation_rate"],
@@ -129,6 +132,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     readiness_gate = report["readiness_gate"]
     scenario_matrix = report["scenario_matrix_evidence"]
     ml_baseline = report["ml_baseline_evidence"]
+    shadow_protocol = report["shadow_evaluation_evidence"]
     flow_status = sandbox_evidence["flow_status"]
     retry_behavior = sandbox_evidence["retry_behavior"]
     gate_checks = "\n".join(
@@ -190,6 +194,18 @@ Flow coverage rate: `{sandbox_evidence['flow_coverage_rate']}`
 - Public-safe status: `{ml_baseline['public_safe_checks']['status']}`
 - No model deployed: `{ml_baseline['governance']['no_model_deployed']}`
 - Production ready: `{ml_baseline['governance']['production_ready']}`
+
+## Shadow Evaluation Evidence
+
+- Protocol version: `{shadow_protocol['protocol_version']}`
+- Contract version: `{shadow_protocol['contract_version']}`
+- Shadow evaluation ready: `{shadow_protocol['shadow_evaluation_ready']}`
+- Rows: `{shadow_protocol['contract_validation']['rows']}`
+- Required field coverage: `{shadow_protocol['contract_validation']['required_field_coverage']}`
+- Feature snapshot coverage: `{shadow_protocol['contract_validation']['feature_snapshot_coverage']}`
+- Prolonged case count: `{shadow_protocol['contract_validation']['prolonged_case_count']}`
+- Best policy by MAE: `{shadow_protocol['benchmark_summary']['best_policy_by_mae']}`
+- Production ready: `{shadow_protocol['governance']['production_ready']}`
 
 ## Pilot Success Metrics
 

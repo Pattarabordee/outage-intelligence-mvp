@@ -16,6 +16,7 @@ from scripts.public_safe_scan import scan_public_safe
 from scripts.run_ml_baseline_benchmark import build_ml_baseline_benchmark
 from scripts.run_partner_sandbox_flow import run_partner_sandbox_flow
 from scripts.run_pilot_scenario_matrix import run_pilot_scenario_matrix
+from scripts.run_shadow_evaluation_protocol import build_shadow_evaluation_protocol
 
 
 def _check(name: str, passed: bool, evidence: str) -> dict[str, Any]:
@@ -34,6 +35,7 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
     scan = scan_public_safe(root=root)
     scenario_matrix = run_pilot_scenario_matrix()
     ml_benchmark = build_ml_baseline_benchmark()
+    shadow_protocol = build_shadow_evaluation_protocol()
     integration = sandbox_summary["sandbox_integration_evidence"]
     idempotency = sandbox_summary["idempotency_result"]
     retry = sandbox_summary["webhook_retry_result"]
@@ -93,6 +95,13 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
             and ml_benchmark["governance"]["no_model_deployed"] is True,
             f"best policy {ml_benchmark['benchmark_summary']['best_policy_by_mae']} with benchmark-only governance",
         ),
+        _check(
+            "shadow_evaluation_protocol",
+            shadow_protocol["shadow_evaluation_ready"] is True
+            and shadow_protocol["public_safe_checks"]["status"] == "passed"
+            and shadow_protocol["governance"]["production_ready"] is False,
+            f"{shadow_protocol['contract_validation']['rows']} rows validated against {shadow_protocol['contract_version']}",
+        ),
     ]
     sandbox_ready = all(check["status"] == "passed" for check in checks)
 
@@ -139,6 +148,18 @@ def build_readiness_gate(root: Path = ROOT) -> dict[str, Any]:
             "no_model_deployed": ml_benchmark["governance"]["no_model_deployed"],
             "production_ready": ml_benchmark["governance"]["production_ready"],
         },
+        "shadow_evaluation": {
+            "protocol_version": shadow_protocol["protocol_version"],
+            "contract_version": shadow_protocol["contract_version"],
+            "shadow_evaluation_ready": shadow_protocol["shadow_evaluation_ready"],
+            "rows": shadow_protocol["contract_validation"]["rows"],
+            "required_field_coverage": shadow_protocol["contract_validation"]["required_field_coverage"],
+            "feature_snapshot_coverage": shadow_protocol["contract_validation"]["feature_snapshot_coverage"],
+            "prolonged_case_count": shadow_protocol["contract_validation"]["prolonged_case_count"],
+            "best_policy_by_mae": shadow_protocol["benchmark_summary"]["best_policy_by_mae"],
+            "public_safe_status": shadow_protocol["public_safe_checks"]["status"],
+            "production_ready": shadow_protocol["governance"]["production_ready"],
+        },
         "sandbox_integration": {
             "mode": integration["mode"],
             "outbound_http_sent": integration["outbound_http_sent"],
@@ -158,6 +179,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     integration = report["sandbox_integration"]
     matrix = report["scenario_matrix"]
     ml_baseline = report["ml_baseline"]
+    shadow_evaluation = report["shadow_evaluation"]
     scan = report["public_safe_scan"]
     return f"""# Private Sandbox Readiness Gate
 
@@ -197,6 +219,18 @@ Data boundary: `{report['data_boundary']}`
 - Best policy MAE hours: `{ml_baseline['best_policy_mae_hours']}`
 - Public-safe status: `{ml_baseline['public_safe_status']}`
 - No model deployed: `{ml_baseline['no_model_deployed']}`
+
+## Shadow Evaluation Protocol
+
+- Protocol version: `{shadow_evaluation['protocol_version']}`
+- Contract version: `{shadow_evaluation['contract_version']}`
+- Shadow evaluation ready: `{shadow_evaluation['shadow_evaluation_ready']}`
+- Rows: `{shadow_evaluation['rows']}`
+- Required field coverage: `{shadow_evaluation['required_field_coverage']}`
+- Feature snapshot coverage: `{shadow_evaluation['feature_snapshot_coverage']}`
+- Prolonged case count: `{shadow_evaluation['prolonged_case_count']}`
+- Best policy by MAE: `{shadow_evaluation['best_policy_by_mae']}`
+- Public-safe status: `{shadow_evaluation['public_safe_status']}`
 
 ## Sandbox Integration
 

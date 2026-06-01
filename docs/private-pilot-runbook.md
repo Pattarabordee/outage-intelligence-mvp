@@ -83,6 +83,7 @@ Run the private sandbox readiness gate:
 ```bash
 python scripts/public_safe_scan.py
 python scripts/run_ml_baseline_benchmark.py
+python scripts/run_shadow_evaluation_protocol.py
 python scripts/generate_readiness_gate.py
 ```
 
@@ -99,7 +100,18 @@ python scripts/run_ml_baseline_benchmark.py --format markdown
 
 Use [ml-baseline-benchmark.md](ml-baseline-benchmark.md) to compare the rules-first ETA policy with simple statistical baselines. The discussion should focus on measurable pilot evidence, underestimation risk, prolonged-outage recall, and why no model is deployed from this public-safe prototype.
 
-## 8. Webhook Retry Discussion
+## 8. Pilot Data Contract And Shadow Evaluation
+
+Run the shadow protocol:
+
+```bash
+python scripts/run_shadow_evaluation_protocol.py
+python scripts/run_shadow_evaluation_protocol.py --format markdown
+```
+
+Use [pilot-data-contract.md](pilot-data-contract.md) to review the dataset shape and [shadow-evaluation-protocol.md](shadow-evaluation-protocol.md) to explain how ETA policy quality can be measured without affecting partner-facing operations.
+
+## 9. Webhook Retry Discussion
 
 The prototype records local outbox events instead of sending HTTP callbacks. This keeps the public repo safe while demonstrating retry and deduplication design.
 
@@ -111,7 +123,7 @@ Discuss:
 - future receiver-side verification for a private sandbox
 - why no live network target is stored in the repository
 
-## 9. Evaluation And ML-Readiness Discussion
+## 10. Evaluation And ML-Readiness Discussion
 
 Generate a pilot evidence report:
 
@@ -133,8 +145,9 @@ Use the report to connect product behavior to measurable pilot outcomes:
 - readiness gate decision
 - scenario matrix evidence
 - ML baseline evidence
+- shadow evaluation evidence
 
-## 10. Production Gaps Before Live Use
+## 11. Production Gaps Before Live Use
 
 The prototype is ready for pilot discussion, not live production use.
 

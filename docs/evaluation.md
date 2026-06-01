@@ -27,6 +27,7 @@ python scripts/run_ml_baseline_benchmark.py
 python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
 python scripts/run_pilot_scenario_matrix.py
+python scripts/run_shadow_evaluation_protocol.py
 python scripts/generate_readiness_gate.py
 python scripts/generate_pilot_report.py
 ```
@@ -50,14 +51,36 @@ The benchmark reports ETA MAE, underestimation rate, overestimation rate, within
 
 For details, see [ml-baseline-benchmark.md](ml-baseline-benchmark.md).
 
+## Shadow Evaluation Protocol
+
+`scripts/run_shadow_evaluation_protocol.py` validates the pilot data contract, checks synthetic dataset coverage, and runs the baseline benchmark on a larger shadow-evaluation dataset.
+
+```bash
+python scripts/run_shadow_evaluation_protocol.py
+python scripts/run_shadow_evaluation_protocol.py --format markdown
+```
+
+The protocol reports:
+
+- data contract version
+- required field coverage
+- feature snapshot coverage
+- partner class coverage
+- SCADA status coverage
+- prolonged-outage case count
+- benchmark summary
+- public-safe status
+
+For the contract, see [pilot-data-contract.md](pilot-data-contract.md). For the protocol, see [shadow-evaluation-protocol.md](shadow-evaluation-protocol.md).
+
 ## Product Metrics To Add Next
 
-- ETA error by partner class
-- Underestimation rate for prolonged outages
-- Decision calibration by confidence band
+- ETA error by partner class and SCADA status
+- Underestimation rate by prolonged-outage family
 - Timeout fallback quality by scenario family
 - Decision calibration by confidence band and partner action
 - Audit completeness and restoration ground-truth coverage by partner class
+- Shadow-vs-live metric drift once governed private pilot data exists
 
 These metrics turn the outage workflow into a data product rather than only a prototype API.
 
@@ -71,7 +94,7 @@ python scripts/generate_pilot_report.py --format markdown
 
 The report includes `sandbox_integration_evidence`, which summarizes whether the local sandbox has exercised incident creation, ETA revision, timeout fallback, restoration closure, duplicate-event handling, and retry behavior.
 
-It also includes `readiness_gate`, which separates private sandbox readiness from production readiness.
+It also includes `readiness_gate`, which separates private sandbox readiness from production readiness, and `shadow_evaluation_evidence`, which validates the pilot data contract.
 
 ## Pilot Scenario Matrix
 

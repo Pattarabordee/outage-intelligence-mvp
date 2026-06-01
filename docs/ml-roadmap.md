@@ -35,6 +35,7 @@ The first baseline is intentionally simple and reproducible:
 python scripts/train_eta_baseline.py
 python scripts/evaluate_product_metrics.py
 python scripts/run_ml_baseline_benchmark.py
+python scripts/run_shadow_evaluation_protocol.py
 ```
 
 It predicts restoration duration from historical mean duration grouped by `scada_status`, then reports MAE and underestimation rate. The benchmark compares this against the current rules-first ETA, a global mean baseline, and a partner-class mean baseline on a chronological synthetic holdout.
@@ -83,3 +84,9 @@ The current ML benchmark is for private sandbox discussion only:
 - public-safe output checks
 
 The next ML step is not deep learning. It is side-by-side shadow evaluation on a larger governed sandbox dataset, with model-card style documentation and explicit acceptance criteria for ETA underestimation and prolonged-outage recall.
+
+## Pilot Data Contract
+
+`docs/pilot-data-contract.md` defines the public-safe row shape for shadow evaluation. The contract requires closed incident rows with prediction time, actual restoration duration, initial ETA, ETA error, rule version, audit event count, and a feature snapshot.
+
+`scripts/run_shadow_evaluation_protocol.py` validates that contract against `data/synthetic/shadow_eval_closed_incidents.jsonl` before running the benchmark. This creates a bridge from rules-first MVP evidence to a future governed private pilot dataset without deploying a model.

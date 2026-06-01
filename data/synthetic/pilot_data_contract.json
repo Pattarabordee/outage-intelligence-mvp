@@ -1,0 +1,53 @@
+{
+  "version": "pilot-data-contract-v1",
+  "data_boundary": "synthetic-public-safe",
+  "resource": "closed_incident_shadow_evaluation",
+  "description": "Contract for public-safe closed incident rows used in private sandbox shadow evaluation.",
+  "required_fields": [
+    "incident_id",
+    "prediction_time",
+    "actual_restoration_duration_hours",
+    "initial_eta_hours",
+    "eta_error_hours",
+    "rule_version",
+    "audit_event_count",
+    "feature_snapshot"
+  ],
+  "feature_snapshot_required": [
+    "partner_id",
+    "partner_class",
+    "scada_status",
+    "province",
+    "source_event_id_present",
+    "timeout_applied"
+  ],
+  "allowed_values": {
+    "partner_class": [
+      "telecom",
+      "industrial_estate",
+      "hospital_network",
+      "data_center",
+      "critical_infrastructure"
+    ],
+    "scada_status": [
+      "OUTAGE_CONFIRMED",
+      "UNKNOWN",
+      "POWER_NORMAL"
+    ]
+  },
+  "acceptance_thresholds": {
+    "minimum_rows": 20,
+    "minimum_partner_classes": 4,
+    "minimum_scada_statuses": 3,
+    "minimum_prolonged_cases": 4,
+    "required_field_coverage": 1.0,
+    "feature_snapshot_coverage": 1.0
+  },
+  "shadow_controls": {
+    "benchmark_only": true,
+    "no_model_deployed": true,
+    "no_outbound_http": true,
+    "no_production_decision_automation": true,
+    "synthetic_rows_only": true
+  }
+}

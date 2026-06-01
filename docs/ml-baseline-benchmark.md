@@ -61,3 +61,5 @@ Before a private pilot uses real operational decisions, the benchmark should be 
 `scripts/generate_pilot_report.py` includes the full artifact as `ml_baseline_evidence`.
 
 Use this after the scenario matrix has passed. The scenario matrix proves repeatable workflow coverage; the ML benchmark proves that ETA policy quality can be measured without adding opaque model behavior.
+
+For a stricter private pilot discussion, run `scripts/run_shadow_evaluation_protocol.py` next. That protocol validates the pilot data contract, checks dataset coverage, and then runs this benchmark on the larger synthetic shadow-evaluation dataset.

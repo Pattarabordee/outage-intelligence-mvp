@@ -17,6 +17,7 @@ This document defines the metrics used to judge whether the private pilot workfl
 | Sandbox integration coverage | Confirms the local flow exercised create, revise, timeout, restore, duplicate handling, and retry behavior. | Partner sandbox flow |
 | Scenario matrix pass rate | Confirms repeatable benchmark coverage across pilot-relevant cases. | Pilot scenario matrix |
 | ML baseline benchmark status | Confirms ETA policy quality can be measured against simple baselines before model complexity is added. | ML baseline benchmark |
+| Shadow data contract coverage | Confirms required fields and feature snapshot fields are complete before a pilot metric review. | Shadow evaluation protocol |
 | Prolonged-outage recall | Measures whether the ETA policy identifies cases that may require earlier backup activation. | ML baseline benchmark |
 | Readiness gate status | Separates private sandbox readiness from production readiness. | Readiness gate report |
 
@@ -30,6 +31,7 @@ These are discussion targets, not production SLAs:
 - Prolonged-outage recall should be reviewed before changing backup-action policy.
 - Timeout fallback rate should be reviewed with operators to separate useful protection from missing evidence.
 - Webhook attempt and delivery rates should be used to validate retry-safe partner integration behavior.
+- Shadow data contract coverage should remain `1.0` before comparing policy variants.
 
 ## Report Command
 
@@ -47,6 +49,7 @@ python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
 python scripts/run_pilot_scenario_matrix.py
 python scripts/run_ml_baseline_benchmark.py
+python scripts/run_shadow_evaluation_protocol.py
 python scripts/generate_readiness_gate.py
 ```
 
@@ -60,5 +63,6 @@ Do not move directly to complex ML. The recommended sequence is:
 2. Measure rule-first ETA performance.
 3. Track underestimation and prolonged-outage recall.
 4. Compare the rules-first policy against simple statistical baselines.
-5. Add a supervised model only after the evidence report and benchmark are stable.
-6. Compare any future model against the rules-first baseline before operational use.
+5. Validate the pilot data contract through shadow evaluation.
+6. Add a supervised model only after the evidence report and benchmark are stable.
+7. Compare any future model against the rules-first baseline before operational use.

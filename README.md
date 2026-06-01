@@ -23,6 +23,7 @@ This repository is a synthetic reference implementation. It is not a production 
 - Private sandbox readiness gate and public-safe scan for pilot go/no-go discussion
 - Pilot scenario matrix for repeatable benchmark coverage across outage, retry, timeout, restore, and scope-control cases
 - ML baseline benchmark comparing rules-first ETA with simple statistical baselines
+- Pilot data contract and shadow evaluation protocol for private sandbox discussion
 - ML-ready closed-loop export and simple ETA baseline
 
 ## Tech Stack
@@ -198,9 +199,9 @@ More detail is available in [docs/security-and-governance.md](docs/security-and-
 - Operational decision layer: clearer policy explanations, confidence bands, and partner action semantics
 - Partner readiness: sandbox integration playbook, scenario matrix, acceptance criteria, readiness gate, webhook/API guide, and data-minimization boundary
 - Demo surfaces: executive value walkthrough and operator pilot console for active incidents, timeout risk, webhook queue, and closed-loop coverage
-- ML data product: baseline benchmark, ETA accuracy monitoring, prolonged-outage risk recall, and partner-level performance reporting
+- ML data product: pilot data contract, shadow evaluation protocol, baseline benchmark, ETA accuracy monitoring, prolonged-outage risk recall, and partner-level performance reporting
 
-See [docs/partner-integration.md](docs/partner-integration.md), [docs/partner-sandbox-playbook.md](docs/partner-sandbox-playbook.md), [docs/pilot-scenario-matrix.md](docs/pilot-scenario-matrix.md), [docs/private-sandbox-acceptance-criteria.md](docs/private-sandbox-acceptance-criteria.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), [docs/ml-baseline-benchmark.md](docs/ml-baseline-benchmark.md), and [docs/evaluation.md](docs/evaluation.md).
+See [docs/partner-integration.md](docs/partner-integration.md), [docs/partner-sandbox-playbook.md](docs/partner-sandbox-playbook.md), [docs/pilot-scenario-matrix.md](docs/pilot-scenario-matrix.md), [docs/private-sandbox-acceptance-criteria.md](docs/private-sandbox-acceptance-criteria.md), [docs/webhook-contract.md](docs/webhook-contract.md), [docs/product-readiness.md](docs/product-readiness.md), [docs/ml-roadmap.md](docs/ml-roadmap.md), [docs/pilot-data-contract.md](docs/pilot-data-contract.md), [docs/shadow-evaluation-protocol.md](docs/shadow-evaluation-protocol.md), [docs/ml-baseline-benchmark.md](docs/ml-baseline-benchmark.md), and [docs/evaluation.md](docs/evaluation.md).
 
 For pilot discussion artifacts, see [docs/private-pilot-runbook.md](docs/private-pilot-runbook.md) and [docs/pilot-success-metrics.md](docs/pilot-success-metrics.md).
 
@@ -242,6 +243,7 @@ python scripts/public_safe_scan.py
 python scripts/run_partner_sandbox_flow.py
 python scripts/run_pilot_scenario_matrix.py
 python scripts/run_ml_baseline_benchmark.py
+python scripts/run_shadow_evaluation_protocol.py
 python scripts/generate_readiness_gate.py
 python scripts/evaluate_product_metrics.py
 python scripts/generate_pilot_report.py
